@@ -4,9 +4,7 @@
 
 #include "CountMinSketch.h"
 #include "DynamicSketch.h"
-#include "countminexpanding.h"
 #include "countmin.h"
-#include "VectorSketch.h"
 
 constexpr float epsilon = 0.1;
 constexpr float delta = 0.1;
@@ -302,18 +300,19 @@ int test_expand_accuracy(const std::vector<uint32_t>& indice) {
 
 int test_operations_latency(const std::vector<uint32_t>& indice) {
 	constexpr int max_sketch_count = 64;
-	constexpr int count_logs = 1024*1024;
+	constexpr unsigned count_logs = 1024*1024;
 
 
 	DynamicSketch dynamic_sketch(CM_WIDTH, CM_DEPTH, SEED);
-	std::chrono::steady_clock::time_point t0, t1;
+	auto t0 = std::chrono::high_resolution_clock::now();
+	auto t1 = std::chrono::high_resolution_clock::now();
 	uint64_t ns;
 	bool expand_phase = true;
 
 	auto start = clock();
 	std::ofstream log("latency.dat", std::ios::trunc);
 	log << max_sketch_count << std::endl;
-	for (int i = 0; i < min(count_logs, indice.size()) ; i++) {
+	for (int i = 0; i < count_logs && i<indice.size() ; i++) {
 		auto packet = indice[i];
 
 		// update time
@@ -359,7 +358,9 @@ int test_independent_runtime(const std::vector<uint32_t>& indice) {
 	constexpr int max_sketch_count = 64;
 	constexpr int cycle_count = 4;
 
-	std::chrono::steady_clock::time_point t0, t1;
+	auto t0 = std::chrono::high_resolution_clock::now();
+	auto t1 = std::chrono::high_resolution_clock::now();
+
 	std::chrono::duration<double> seconds;
 
 	auto start = clock();

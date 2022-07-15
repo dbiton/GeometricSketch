@@ -1,5 +1,4 @@
 #include "DynamicSketch.h"
-#include "xxhash64.h"
 #include <algorithm>
 
 DynamicSketch::DynamicSketch(int width, int depth, int _seed) : seed(_seed)
