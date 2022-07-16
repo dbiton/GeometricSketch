@@ -166,5 +166,5 @@ DynamicSketch::Node::Node(int width, int depth, int seed, uint32_t _min_key, uin
 
 bool DynamicSketch::Node::compareMinKey(Node* n0, Node* n1)
 {
-	return n0->min_key > n1->min_key;
+	return n0->min_key < n1->min_key;
 }
