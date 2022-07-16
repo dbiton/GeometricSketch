@@ -1,3 +1,5 @@
+#pragma once
+
 // Two different structures: 
 //   1 -- The basic CM Sketch
 //   2 -- The hierarchical CM Sketch: with log n levels, for range sums etc. 

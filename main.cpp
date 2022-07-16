@@ -2,7 +2,6 @@
 #include <time.h>
 #include <chrono>
 
-#include "CountMinSketch.h"
 #include "DynamicSketch.h"
 #include "countmin.h"
 
@@ -589,7 +588,7 @@ int main(int argc, char* argv[])
 	indice.reserve(NUM_PACKETS);
 
 	printf("parsing pcap file...\n");
-	dt = parseCapture("C://capture.txt", &indice);
+	dt = parseCapture("/home_nfs/dbiton/dev/capture.txt", &indice);
 	printf("%f sea conds elapsed\n", dt);
 
 	printf("testing operations' latency...\n");

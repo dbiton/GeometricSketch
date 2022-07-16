@@ -21,7 +21,6 @@ void DynamicSketch::update(uint32_t item, int diff)
 		}
 	}
 	
-	
 	assert(node);
 	node->updates_counter++;
 	if (node->updates_counter == 1) {
