@@ -8,10 +8,11 @@
 constexpr float epsilon = 0.1;
 constexpr float delta = 0.1;
 constexpr int SEED = 0x1337C0D3;
-constexpr int NUM_PACKETS = 1024 * 1024 * 32;
+constexpr int NUM_PACKETS = INT_MAX;
 const int CM_WIDTH = ceil(exp(1) / epsilon);
 const int CM_DEPTH = ceil(log(1 / delta));
 
+typedef int (*QueryFunc)(uint32_t);
 
 double parseCapture(std::string capture_path, std::vector<uint32_t>* src_addrs) {
 	double start, end, time_diff;
@@ -45,71 +46,6 @@ double calc_counts(const std::vector<uint32_t>& indice, std::unordered_map<uint3
 	return time_diff;
 }
 
-double test_count_min(const std::vector<uint32_t>& indice, const std::unordered_map<uint32_t, int>& counts, double& mse, double& dt_query, double& dt_update) {
-	CM_type* count_min = CM_Init(CM_WIDTH, CM_DEPTH, SEED);
-
-	auto t0 = std::chrono::high_resolution_clock::now();
-	for (const auto& index : indice) {
-		CM_Update(count_min, index, 1);
-	}
-	auto t1 = std::chrono::high_resolution_clock::now();
-	mse = 0;
-	for (const auto& count : counts) {
-		uint32_t index = count.first;
-		int index_count = count.second;
-		mse += std::pow(CM_PointEst(count_min, index) - index_count, 2);
-	}
-	mse /= counts.size();
-
-	auto t2 = std::chrono::high_resolution_clock::now();
-	std::chrono::duration<double, std::milli> dt0 = t1 - t0;
-	std::chrono::duration<double, std::milli> dt1 = t2 - t1;
-	dt_update = dt0.count() / indice.size();
-	dt_query = dt1.count() / counts.size();
-	delete count_min;
-	return (dt0.count() + dt1.count()) / 1000;
-}
-
-void test_count_ring_accuracy(const std::vector<uint32_t>& indice) {
-	std::ofstream file;
-	file.open("once2.dat");
-	//for (int incr_per_expand = 1000; incr_per_expand <= 1000; incr_per_expand *= 2) {
-		DynamicSketch count_min_ring(CM_WIDTH, CM_DEPTH, SEED);
-		std::unordered_map<uint32_t, int> counts;
-
-		int counter = 256*4;
-		file << 0;
-		for (const auto& index : indice) {
-			count_min_ring.update(index, 1);
-			if (counts.find(index) == counts.end()) {
-				counts[index] = 1;
-			}
-			else {
-				counts[index]++;
-			}
-
-			counter--;
-			if (counter == 0) {
-				counter = 256 * 4;
-				int size = count_min_ring.sketchCount();
-				count_min_ring.expand();
-				std::cout << size << std::endl;
-
-				double mse = 0;
-				for (const auto& count : counts) {
-					uint32_t index = count.first;
-					int index_count = count.second;
-					mse += std::pow(count_min_ring.query(index) - index_count, 2);
-				}
-				mse /= counts.size();
-
-				file << "," << mse;
-			}
-		}
-	//}
-	file.close();
-}
-
 double test_unordered_map_time(const std::vector<uint32_t>& indice, std::unordered_map<uint32_t, uint32_t>& m) {
 	auto t0 = std::chrono::high_resolution_clock::now();
 	for (auto i : indice) {
@@ -122,12 +58,12 @@ double test_unordered_map_time(const std::vector<uint32_t>& indice, std::unorder
 	return dt.count() / 1000;
 }
 
-int minimum_binary_tree_size(int value_size, int elements_count) {
-	return (sizeof(void*) * 2 + value_size) * elements_count;
+int minimum_binary_tree_size(int elements_count) {
+	return (sizeof(void*) * 2 + sizeof(uint32_t)) * elements_count;
 }
 
-int minimum_hash_map_size(int value_size, int elements_count, float load_factor) {
-	return value_size * elements_count / load_factor;
+int minimum_hash_map_size(int elements_count, float load_factor) {
+	return sizeof(uint32_t) * elements_count / load_factor;
 }
 
 double test_map_time(const std::vector<uint32_t>& indice, std::map<uint32_t, uint32_t>& m) {
@@ -143,23 +79,23 @@ double test_map_time(const std::vector<uint32_t>& indice, std::map<uint32_t, uin
 }
 
 double test_memory_usage(const std::vector<uint32_t>& indice) {
-	constexpr int size_factor = 10;
+	constexpr int size_factor = 1;
 	auto t0 = std::chrono::high_resolution_clock::now();
 	std::map<uint32_t, uint32_t> m;
 
 	std::ofstream log("memory_usage.dat", std::ios::trunc);
 
-	DynamicSketch sketch_hash(CM_WIDTH, CM_DEPTH, SEED);
-	DynamicSketch sketch_tree(CM_WIDTH, CM_DEPTH, SEED);
+	DynamicSketch sketch_hash(CM_WIDTH*128, CM_DEPTH, SEED);
+	DynamicSketch sketch_tree(CM_WIDTH*128, CM_DEPTH, SEED);
 
-	constexpr int updates_per_log = 1024 * 512;
+	constexpr int updates_per_log = 1024 * 4;
 
-	for (int i = 0; i < NUM_PACKETS; i++) {
+	for (int i = 0; i < indice.size(); i++) {
 		auto packet = indice[i];
 
 		// sized a tenth of the size of a tree/hash
-		int size_hash = minimum_hash_map_size(sizeof(uint32_t), m.size(), 0.75);
-		int size_tree = minimum_binary_tree_size(sizeof(uint32_t), m.size());
+		int size_hash = minimum_hash_map_size(m.size(), 0.75);
+		int size_tree = minimum_binary_tree_size(m.size());
 		while (sketch_hash.byteSize() * size_factor < size_hash) {
 			sketch_hash.expand();
 		}
@@ -170,7 +106,9 @@ double test_memory_usage(const std::vector<uint32_t>& indice) {
 		if (i % updates_per_log == 0 && i > 1) {
 			double mse_hash = 0;
 			for (auto p : m) {
-				mse_hash += std::pow((float)p.second - sketch_hash.query(p.first), 2);
+				int actual = p.second;
+				int estimate = sketch_hash.query(p.first);
+				mse_hash += (actual - estimate) * (actual - estimate);
 			}
 			mse_hash /= i;
 
@@ -238,11 +176,13 @@ int test_expand_accuracy(const std::vector<uint32_t>& indice) {
 	log << std::endl;
 
 	// graph best and worst cases
-	for (int i = 0; i < NUM_PACKETS; i++) {
+	for (int i = 0; i < indice.size(); i++) {
 		if (i % updates_per_log == 0 && i > 1) {
 			double mse = 0;
 			for (auto p : counts) {
-				mse += std::pow(p.second - CM_PointEst(count_min_small, p.first), 2);
+				int actual = p.second;
+				int estimate = CM_PointEst(count_min_small, p.first);
+				mse += std::pow(actual-estimate, 2);
 			}
 			mse /= i;
 			log << i << " " << mse << " ";
@@ -254,7 +194,7 @@ int test_expand_accuracy(const std::vector<uint32_t>& indice) {
 	log << std::endl;
 	
 	counts.clear();
-	for (int i = 0; i < NUM_PACKETS; i++) {
+	for (int i = 0; i < indice.size(); i++) {
 		if (i % updates_per_log == 0 && i > 1) {
 			double mse = 0;
 			for (auto p : counts) {
@@ -273,9 +213,9 @@ int test_expand_accuracy(const std::vector<uint32_t>& indice) {
 	for (auto sketch_count : sketch_counts) {
 		counts.clear();
 		const int sketch_width = CM_WIDTH * expand_factor / sketch_count;
-		const int updates_per_expand = NUM_PACKETS / sketch_count;
+		const int updates_per_expand = indice.size() / sketch_count;
 		DynamicSketch count_split(sketch_width, CM_DEPTH, SEED);
-		for (int i = 1; i < NUM_PACKETS; i++) {
+		for (int i = 1; i < indice.size(); i++) {
 			if (i % updates_per_log == 0 && i > 1) {
 				double mse = 0;
 				for (auto p : counts) {
@@ -299,9 +239,11 @@ int test_expand_accuracy(const std::vector<uint32_t>& indice) {
 
 int test_operations_latency(const std::vector<uint32_t>& indice) {
 	constexpr int max_sketch_count = 64;
-	constexpr unsigned count_logs = 1024*1024;
+	constexpr int aggregate_size = 128;
+	constexpr unsigned count_logs = 1024;
 
-
+	std::unordered_map<uint32_t, int> hash;
+	std::map<uint32_t, int> tree;
 	DynamicSketch dynamic_sketch(CM_WIDTH, CM_DEPTH, SEED);
 	auto t0 = std::chrono::high_resolution_clock::now();
 	auto t1 = std::chrono::high_resolution_clock::now();
@@ -310,23 +252,55 @@ int test_operations_latency(const std::vector<uint32_t>& indice) {
 
 	auto start = clock();
 	std::ofstream log("latency.dat", std::ios::trunc);
-	log << max_sketch_count << std::endl;
-	for (int i = 0; i < count_logs && i<indice.size() ; i++) {
-		auto packet = indice[i];
+	log << max_sketch_count << " " << aggregate_size << std::endl;
+	for (int i = 0; i < count_logs; i++) {
+		std::vector<uint32_t> chunk;
+		for (int j = 0; j < aggregate_size; j++) chunk.push_back(indice[i*aggregate_size+j]);
 
-		// update time
+		log << dynamic_sketch.sketchCount() << " ";
+
+		// tree update time
 		t0 = std::chrono::high_resolution_clock::now();
-		dynamic_sketch.update(packet, 1);
-		t1 = std::chrono::high_resolution_clock::now();
-		ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
-		log << dynamic_sketch.sketchCount() << " " << ns << " ";
-		
-		// query time
-		t0 = std::chrono::high_resolution_clock::now();
-		dynamic_sketch.query(packet);
+		for (auto packet : chunk) tree[packet]++;
 		t1 = std::chrono::high_resolution_clock::now();
 		ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
 		log << ns << " ";
+
+		// tree query time
+		t0 = std::chrono::high_resolution_clock::now();
+		int res = 0;
+		for (auto packet : chunk) res += tree[packet];
+		t1 = std::chrono::high_resolution_clock::now();
+		ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
+		log << ns << " " << res << " ";
+
+		// hash update time
+		t0 = std::chrono::high_resolution_clock::now();
+		for (auto packet : chunk) hash[packet]++;
+		t1 = std::chrono::high_resolution_clock::now();
+		ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
+		log << ns << " ";
+
+		// hash query time
+		t0 = std::chrono::high_resolution_clock::now();
+		for (auto packet : chunk) res += hash[packet];
+		t1 = std::chrono::high_resolution_clock::now();
+		ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
+		log << ns << " " << res << " ";
+
+		// update time
+		t0 = std::chrono::high_resolution_clock::now();
+		for (auto packet : chunk) dynamic_sketch.update(packet, 1);
+		t1 = std::chrono::high_resolution_clock::now();
+		ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
+		log << ns << " ";
+		
+		// query time
+		t0 = std::chrono::high_resolution_clock::now();
+		for (auto packet : chunk) res += dynamic_sketch.query(packet);
+		t1 = std::chrono::high_resolution_clock::now();
+		ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
+		log << ns << " " << res << " ";
 		
 		if (dynamic_sketch.sketchCount() == max_sketch_count) expand_phase = false;
 		else if (dynamic_sketch.sketchCount() == 1) expand_phase = true;
@@ -336,7 +310,7 @@ int test_operations_latency(const std::vector<uint32_t>& indice) {
 			dynamic_sketch.expand();
 			t1 = std::chrono::high_resolution_clock::now();
 			ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
-			log << "0 " << ns << std::endl;
+			log << "E " << ns << std::endl;
 		}
 		else {
 			// shrink time
@@ -344,7 +318,7 @@ int test_operations_latency(const std::vector<uint32_t>& indice) {
 			dynamic_sketch.shrink();
 			t1 = std::chrono::high_resolution_clock::now();
 			ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
-			log << "1 " << ns << std::endl;
+			log << "S " << ns << std::endl;
 		}
 	}
 	log.close();
@@ -400,7 +374,6 @@ int test_independent_runtime(const std::vector<uint32_t>& indice) {
 
 			dynamic_sketch = dynamic_sketch_copy;
 			
-			std::cout << dynamic_sketch.sketchCount() << std::endl;
 			if (dynamic_sketch.sketchCount() == 1) {
 				phase_expand = true;
 			}
@@ -420,7 +393,7 @@ int test_independent_runtime(const std::vector<uint32_t>& indice) {
 int test_error_slope(const std::vector<uint32_t>& indice) {
 	constexpr int max_sketch_count = 3;
 	constexpr int updates_per_log = 1024 * 128;
-	int updates_per_expand = indice.size() / (max_sketch_count) / (2-1);
+	int updates_per_expand = indice.size() / max_sketch_count / 2;
 
 	std::unordered_map<uint32_t, int> counts;
 	DynamicSketch dynamic_sketch(CM_WIDTH, CM_DEPTH, SEED);
@@ -435,9 +408,12 @@ int test_error_slope(const std::vector<uint32_t>& indice) {
 		dynamic_sketch.update(packet, 1);
 		counts[packet]++;
 		if (i % updates_per_expand == 0 && i > 0) {
+			std::cout << dynamic_sketch.sketchCount() << std::endl;
 			if (phase_expand) {
 				dynamic_sketch.expand();
-				if (dynamic_sketch.sketchCount() == max_sketch_count) phase_expand = false;
+				if (dynamic_sketch.sketchCount() == max_sketch_count) {
+					phase_expand = false;
+				}
 			}
 			else dynamic_sketch.shrink();
 		}
@@ -476,7 +452,7 @@ int test_error_slope(const std::vector<uint32_t>& indice) {
 	return (end - start) / CLOCKS_PER_SEC;
 }
 
-int test_runtime(const std::vector<uint32_t>& indice) {
+int test_amplitude_frequency(const std::vector<uint32_t>& indice) {
 	constexpr int iteration_count = 16;
 	auto start = clock();
 	std::ofstream log("runtime.dat", std::ios::trunc);
@@ -504,11 +480,11 @@ int test_runtime(const std::vector<uint32_t>& indice) {
 
 			bool dir = 1;
 			const int updates_per_log = 1024 * 512;
-			const int updates_per_modify = NUM_PACKETS / frequency / 2;
+			const int updates_per_modify = indice.size() / frequency / 2;
 			const int sketch_width = CM_WIDTH / amplitude;
 
 			DynamicSketch count_split(sketch_width, CM_DEPTH, SEED);
-			for (int i = 1; i < NUM_PACKETS; i++) {
+			for (int i = 1; i < indice.size(); i++) {
 				// no expand on first iteration
 				if (i % updates_per_modify == 0 && i > 1) {
 					int n = count_split.sketchCount();
@@ -548,11 +524,11 @@ int test_modify_size(const std::vector<uint32_t>& indice) {
 		std::unordered_map<int, int> counts;
 
 		bool dir = 1;
-		const int updates_per_modify = NUM_PACKETS / frequency / 2;
+		const int updates_per_modify = indice.size() / frequency / 2;
 		const int sketch_width = CM_WIDTH / amplitude;
 		
 		DynamicSketch count_split(sketch_width, CM_DEPTH, SEED);
-		for (int i = 1; i < NUM_PACKETS; i++) {
+		for (int i = 1; i < indice.size(); i++) {
 			if (i % updates_per_log == 0 && i > 1) {
 				double mse = 0;
 				for (auto p : counts) {
@@ -585,11 +561,23 @@ int main(int argc, char* argv[])
 
 	double dt;
 	std::vector<uint32_t> indice;
-	indice.reserve(NUM_PACKETS);
+	indice.reserve(indice.size());
 
 	printf("parsing pcap file...\n");
-	dt = parseCapture("/home_nfs/dbiton/dev/capture.txt", &indice);
-	printf("%f sea conds elapsed\n", dt);
+	dt = parseCapture("C:/capture.txt", &indice);
+	printf("%f seconds elapsed\n", dt);
+	
+	printf("testing error slope...\n");
+	dt = test_error_slope(indice);
+	printf("%f seconds elapsed\n", dt);
+
+	printf("testing memory usage...\n");
+	dt = test_memory_usage(indice);
+	printf("%f seconds elapsed\n", dt);
+
+	printf("testing expand accuracy...\n");
+	dt = test_expand_accuracy(indice);
+	printf("%f seconds elapsed\n", dt);
 
 	printf("testing operations' latency...\n");
 	dt = test_operations_latency(indice);
@@ -603,24 +591,12 @@ int main(int argc, char* argv[])
 	dt = test_expand_improvement_bound(indice);
 	printf("%f seconds elapsed\n", dt);
 
-	printf("testing error slope...\n");
-	dt = test_error_slope(indice);
-	printf("%f seconds elapsed\n", dt);
-
-	printf("testing memory usage...\n");
-	dt = test_memory_usage(indice);
-	printf("%f seconds elapsed\n", dt);
-
-	printf("testing expand accuracy...\n");
-	dt = test_expand_accuracy(indice);
-	printf("%f seconds elapsed\n", dt);
-
 	printf("testing modify size...\n");
 	dt = test_modify_size(indice);
 	printf("%f seconds elapsed\n", dt);
 
-	printf("testing runtime...\n");
-	dt = test_runtime(indice);
+	printf("testing amplitude frequency...\n");
+	dt = test_amplitude_frequency(indice);
 	printf("%f seconds elapsed\n", dt);
 
 	file_res.close();
