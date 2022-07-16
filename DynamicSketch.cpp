@@ -1,5 +1,4 @@
 #include "DynamicSketch.h"
-#include "xxhash64.h"
 #include <algorithm>
 
 DynamicSketch::DynamicSketch(int width, int depth, int _seed) : seed(_seed)
@@ -21,7 +20,6 @@ void DynamicSketch::update(uint32_t item, int diff)
 			node = node_curr;
 		}
 	}
-	
 	
 	assert(node);
 	node->updates_counter++;
