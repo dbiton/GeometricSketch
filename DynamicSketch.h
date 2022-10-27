@@ -12,7 +12,6 @@ class DynamicSketch
 	struct Node {
 		CM_type* sketch;
 
-		Node* parent;
 		uint32_t updates_average;
 		uint32_t updates_counter;
 		int num_events;
@@ -21,7 +20,7 @@ class DynamicSketch
 		uint32_t min_key;
 		uint32_t max_key;
 
-		Node(int width, int depth, int seed, uint32_t min_key, uint32_t max_key, Node* parent);
+		Node(int width, int depth, int seed, uint32_t min_key, uint32_t max_key);
 		static bool compareMinKey(Node* n0, Node* n1);
 	};
 	std::vector<Node*> nodes_vector;

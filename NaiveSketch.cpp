@@ -3,7 +3,7 @@
 NaiveSketch::NaiveSketch(int width, int depth, int seed)
 {
 	Node* node = new Node(width, depth, seed);
-	nodes_vector.push_back(node);
+	nodes.push_back(node);
 }
 
 void NaiveSketch::update(uint32_t item, int diff)
@@ -49,7 +49,7 @@ int NaiveSketch::emptiestNodeIndex()
 {
 	int min_node_index = 0;
 	for (int i = 1; i < nodes.size(); i++) {
-		if (node->num_events < mpdes[min_node_index]->num_events) min_node_index = i;
+		if (nodes[i]->num_events < nodes[min_node_index]->num_events) min_node_index = i;
 	}
 	return min_node_index;
 }

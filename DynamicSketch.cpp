@@ -3,7 +3,7 @@
 
 DynamicSketch::DynamicSketch(int width, int depth, int _seed) : seed(_seed)
 {
-	Node* node = new Node(width, depth, seed, 0, UINT32_MAX, nullptr);
+	Node* node = new Node(width, depth, seed, 0, UINT32_MAX);
 	nodes_vector.push_back(node);
 }
 
@@ -23,6 +23,7 @@ void DynamicSketch::update(uint32_t item, int diff)
 	
 	assert(node);
 	node->updates_counter++;
+	node->num_events++;
 	if (node->updates_counter == 1) {
 		node->updates_average = item;
 	}
@@ -30,7 +31,6 @@ void DynamicSketch::update(uint32_t item, int diff)
 		node->updates_average += item / node->updates_counter - node->updates_average / node->updates_counter;
 	}
 	CM_Update(node->sketch, item, diff);
-	node->num_events++;
 }
 
 int DynamicSketch::query(uint32_t item)
@@ -62,7 +62,7 @@ void DynamicSketch::expand()
 		}
 	}
 	auto range_child = node_max->flip_flop ? std::make_pair(node_max->updates_average, range_max.second) : std::make_pair(range_max.first, node_max->updates_average);
-	Node* node_child = new DynamicSketch::Node(node_max->sketch->width, node_max->sketch->depth, seed, range_child.first, range_child.second, node_max);
+	Node* node_child = new DynamicSketch::Node(node_max->sketch->width, node_max->sketch->depth, seed, range_child.first, range_child.second);
 	
 	// sorted insertion into nodes_vector
 
@@ -151,11 +151,10 @@ int DynamicSketch::nextAt(int index, int value)
 	return -1;
 }
 
-DynamicSketch::Node::Node(int width, int depth, int seed, uint32_t _min_key, uint32_t _max_key, Node* _parent) :
+DynamicSketch::Node::Node(int width, int depth, int seed, uint32_t _min_key, uint32_t _max_key) :
 	sketch(nullptr),
 	num_events(0),
 	updates_counter(0),
-	parent(_parent),
 	updates_average(0),
 	flip_flop(rand()),
 	min_key(_min_key),
