@@ -1,0 +1,57 @@
+[
+{
+  "directory": "/home/dbiton/Desktop/projects/DynamicSketch/cpp/build",
+  "command": "/usr/bin/g++ -I/home/dbiton/Desktop/projects/DynamicSketch/cpp/include -g -o CMakeFiles/DynamicSketch.dir/src/BOBHash32.cpp.o -c /home/dbiton/Desktop/projects/DynamicSketch/cpp/src/BOBHash32.cpp",
+  "file": "/home/dbiton/Desktop/projects/DynamicSketch/cpp/src/BOBHash32.cpp"
+},
+{
+  "directory": "/home/dbiton/Desktop/projects/DynamicSketch/cpp/build",
+  "command": "/usr/bin/g++ -I/home/dbiton/Desktop/projects/DynamicSketch/cpp/include -g -o CMakeFiles/DynamicSketch.dir/src/countmin.cc.o -c /home/dbiton/Desktop/projects/DynamicSketch/cpp/src/countmin.cc",
+  "file": "/home/dbiton/Desktop/projects/DynamicSketch/cpp/src/countmin.cc"
+},
+{
+  "directory": "/home/dbiton/Desktop/projects/DynamicSketch/cpp/build",
+  "command": "/usr/bin/g++ -I/home/dbiton/Desktop/projects/DynamicSketch/cpp/include -g -o CMakeFiles/DynamicSketch.dir/src/DynamicSketch.cpp.o -c /home/dbiton/Desktop/projects/DynamicSketch/cpp/src/DynamicSketch.cpp",
+  "file": "/home/dbiton/Desktop/projects/DynamicSketch/cpp/src/DynamicSketch.cpp"
+},
+{
+  "directory": "/home/dbiton/Desktop/projects/DynamicSketch/cpp/build",
+  "command": "/usr/bin/g++ -I/home/dbiton/Desktop/projects/DynamicSketch/cpp/include -g -o CMakeFiles/DynamicSketch.dir/src/ElasticSketch.cpp.o -c /home/dbiton/Desktop/projects/DynamicSketch/cpp/src/ElasticSketch.cpp",
+  "file": "/home/dbiton/Desktop/projects/DynamicSketch/cpp/src/ElasticSketch.cpp"
+},
+{
+  "directory": "/home/dbiton/Desktop/projects/DynamicSketch/cpp/build",
+  "command": "/usr/bin/g++ -I/home/dbiton/Desktop/projects/DynamicSketch/cpp/include -g -o CMakeFiles/DynamicSketch.dir/src/HeavyPart.cpp.o -c /home/dbiton/Desktop/projects/DynamicSketch/cpp/src/HeavyPart.cpp",
+  "file": "/home/dbiton/Desktop/projects/DynamicSketch/cpp/src/HeavyPart.cpp"
+},
+{
+  "directory": "/home/dbiton/Desktop/projects/DynamicSketch/cpp/build",
+  "command": "/usr/bin/g++ -I/home/dbiton/Desktop/projects/DynamicSketch/cpp/include -g -o CMakeFiles/DynamicSketch.dir/src/LightPart.cpp.o -c /home/dbiton/Desktop/projects/DynamicSketch/cpp/src/LightPart.cpp",
+  "file": "/home/dbiton/Desktop/projects/DynamicSketch/cpp/src/LightPart.cpp"
+},
+{
+  "directory": "/home/dbiton/Desktop/projects/DynamicSketch/cpp/build",
+  "command": "/usr/bin/g++ -I/home/dbiton/Desktop/projects/DynamicSketch/cpp/include -g -o CMakeFiles/DynamicSketch.dir/src/main.cpp.o -c /home/dbiton/Desktop/projects/DynamicSketch/cpp/src/main.cpp",
+  "file": "/home/dbiton/Desktop/projects/DynamicSketch/cpp/src/main.cpp"
+},
+{
+  "directory": "/home/dbiton/Desktop/projects/DynamicSketch/cpp/build",
+  "command": "/usr/bin/g++ -I/home/dbiton/Desktop/projects/DynamicSketch/cpp/include -g -o CMakeFiles/DynamicSketch.dir/src/Murmurhash.cpp.o -c /home/dbiton/Desktop/projects/DynamicSketch/cpp/src/Murmurhash.cpp",
+  "file": "/home/dbiton/Desktop/projects/DynamicSketch/cpp/src/Murmurhash.cpp"
+},
+{
+  "directory": "/home/dbiton/Desktop/projects/DynamicSketch/cpp/build",
+  "command": "/usr/bin/g++ -I/home/dbiton/Desktop/projects/DynamicSketch/cpp/include -g -o CMakeFiles/DynamicSketch.dir/src/NaiveSketch.cpp.o -c /home/dbiton/Desktop/projects/DynamicSketch/cpp/src/NaiveSketch.cpp",
+  "file": "/home/dbiton/Desktop/projects/DynamicSketch/cpp/src/NaiveSketch.cpp"
+},
+{
+  "directory": "/home/dbiton/Desktop/projects/DynamicSketch/cpp/build",
+  "command": "/usr/bin/g++ -I/home/dbiton/Desktop/projects/DynamicSketch/cpp/include -g -o CMakeFiles/DynamicSketch.dir/src/prng.cc.o -c /home/dbiton/Desktop/projects/DynamicSketch/cpp/src/prng.cc",
+  "file": "/home/dbiton/Desktop/projects/DynamicSketch/cpp/src/prng.cc"
+},
+{
+  "directory": "/home/dbiton/Desktop/projects/DynamicSketch/cpp/build",
+  "command": "/usr/bin/g++ -I/home/dbiton/Desktop/projects/DynamicSketch/cpp/include -g -o CMakeFiles/DynamicSketch.dir/src/rand48.cc.o -c /home/dbiton/Desktop/projects/DynamicSketch/cpp/src/rand48.cc",
+  "file": "/home/dbiton/Desktop/projects/DynamicSketch/cpp/src/rand48.cc"
+}
+]

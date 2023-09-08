@@ -5,9 +5,9 @@
 #include <vector>
 
 #include "countmin.h"
+#include "Dictionary.h"
 
-
-class DynamicSketch
+class DynamicSketch : public Dictionary
 {
 	struct Node {
 		CM_type* sketch;
@@ -27,16 +27,17 @@ class DynamicSketch
 
 	int seed;
 public:
+
 	DynamicSketch(int width, int depth, int seed);
 
-	void update(uint32_t item, int diff);
+	void update(uint32_t key, int amount);
 	int query(uint32_t item);
 
 	void expand();
 	void shrink();
 
-	int sketchCount() const;
-	int byteSize() const;
+    int getSize() const;
+    int getMemoryUsage() const; // minimum
 private:
 	static bool nodeComp(Node* n0, Node* n1);
 	int firstAt(int value);
