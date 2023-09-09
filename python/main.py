@@ -3,8 +3,6 @@ import os.path
 
 import matplotlib
 from scipy import signal
-
-import numpy
 import numpy as np
 from scipy.signal import savgol_filter
 from mpl_toolkits import mplot3d
@@ -93,73 +91,6 @@ def plot_error_slope():
 
     fig.savefig('error slope', bbox_inches='tight')
     plt.show()
-
-
-'''
-def plot_runtime_independent():
-    file = open(os.path.join(data_folder, "runtime_independent.dat"))
-
-    line = file.readline()
-    max_count_sketches = int(line)
-    update_times = [[] for _ in range(max_count_sketches)]
-    query_times = [[] for _ in range(max_count_sketches)]
-    shrink_times = [[] for _ in range(max_count_sketches)]
-    expand_times = [[] for _ in range(max_count_sketches)]
-
-    line = file.readline()
-    while line:
-        data = [int(word) for word in line.strip().split(" ")]
-        count_sketches = data[0] - 1
-        update_time = data[1]
-        update_times[count_sketches].append(update_time)
-        query_time = data[2]
-        query_times[count_sketches].append(query_time)
-        is_shrink = data[3]
-        modify_size_time = data[4]
-        if is_shrink:
-            shrink_times[count_sketches].append(modify_size_time)
-        else:
-            expand_times[count_sketches].append(modify_size_time)
-        line = file.readline()
-
-    operations = {
-        "update": update_times,
-        "query": query_times,
-        "expand": expand_times,
-        "shrink": shrink_times
-    }
-
-    fig, axs = plt.subplots(4)
-
-    color_cycle = plt.rcParams['axes.prop_cycle']()
-    for i_ax, operation_name in enumerate(operations):
-        data = operations[operation_name]
-        x = []
-        y = []
-        e = []
-        for i in range(1, max_count_sketches + 1):
-            x.append(i)
-            data_i = numpy.array(data[i - 1])
-            y.append(data_i.mean())
-            e.append(data_i.std())
-        x = np.array(x)
-        y = np.array(y)
-        e = np.array(e)
-        c = next(color_cycle)
-        axs[i_ax].plot(x, y, label=operation_name, **c)
-        axs[i_ax].fill_between(x, y - e, y + e, **c)
-
-    lines_labels = [ax.get_legend_handles_labels() for ax in fig.axes]
-    lines, labels = [sum(lol, []) for lol in zip(*lines_labels)]
-    fig.legend(lines, labels)
-
-    for i in range(4):
-        axs[i].set_xlabel('sketch count')
-        axs[i].set_ylabel('time(ns)')
-    axs[0].set_title("Mean and std for runtime of dynamic sketch operations")
-    plt.tight_layout()
-    plt.show()
-'''
 
 
 def plot_operations_per_second():

@@ -82,7 +82,7 @@ Dictionary *createDictionary(std::string type)
 	}
 	else if (type == "count_min")
 	{
-		return new CountMinDictionary(CM_WIDTH, CM_DEPTH);
+		return new CountMinDictionary(CM_WIDTH, CM_DEPTH, SEED);
 	}
 	else if (type == "count_sketch")
 	{
@@ -164,7 +164,7 @@ void doPendingActions(Dictionary *dictionary, std::vector<uint32_t> packets, std
 			else if (action_name == "log_accuracy")
 			{
 				double accuracy = calculateAccuracy(dictionary, packets, packet_index);
-				std::cout << "{log_accuracy:" << accuracy << "}";
+				std::cout << "{log_accuracy:" << accuracy << "}" << std::endl;
 			}
 			else if (action_name == "log_size")
 			{
@@ -190,10 +190,12 @@ int main(int argc, char *argv[])
 	Dictionary *dictionary;
 	std::vector<uint32_t> packets;
 	std::vector<ActionTimer> action_timers;
-	int i = -1;
-	while (i < argc)
+	int i = 0;
+	while (i < argc - 1)
 	{
 		std::string arg = argv[++i];
+		std::cout << "arg " << i << ":" << arg << std::endl;
+
 		if (arg == "--file" || arg == "-f")
 		{
 			std::string path = argv[++i];

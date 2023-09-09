@@ -11,14 +11,15 @@ class Dictionary
 {
 public:
     Dictionary();
+    ~Dictionary();
 
-    virtual void update(uint32_t key, int amount);
-    virtual int query(uint32_t key);
+    virtual void update(uint32_t key, int amount) = 0;
+    virtual int query(uint32_t key) = 0;
 
-    virtual void expand();
-    virtual void shrink();
-    virtual int getSize() const;
-    virtual int getMemoryUsage() const;
+    virtual void expand() = 0;
+    virtual void shrink() = 0;
+    virtual int getSize() const = 0;
+    virtual int getMemoryUsage() const = 0;
 };
 
 class CountSketchDictionary : public Dictionary
@@ -26,7 +27,8 @@ class CountSketchDictionary : public Dictionary
     CountSketch count_sketch;
 
 public:
-    CountSketchDictionary(double width, double depth);
+    CountSketchDictionary(int width, int depth);
+    ~CountSketchDictionary();
 
     void update(uint32_t key, int amount);
     int query(uint32_t key);
@@ -42,7 +44,8 @@ class CountMinDictionary : public Dictionary
     CM_type *count_min;
 
 public:
-    CountMinDictionary(double width, double depth);
+    CountMinDictionary(int width, int depth, int seed);
+    ~CountMinDictionary();
 
     void update(uint32_t key, int amount);
     int query(uint32_t key);
@@ -55,10 +58,11 @@ public:
 
 class UnorderedMapDictionary : public Dictionary
 {
-    std::unordered_map<uint32_t, int> unorderd_map;
+    std::unordered_map<uint32_t, int> unordered_map;
 
 public:
     UnorderedMapDictionary();
+    ~UnorderedMapDictionary();
 
     void update(uint32_t key, int amount);
     int query(uint32_t key);
@@ -75,6 +79,7 @@ class MapDictionary : public Dictionary
 
 public:
     MapDictionary();
+    ~MapDictionary();
 
     void update(uint32_t key, int amount);
     int query(uint32_t key);

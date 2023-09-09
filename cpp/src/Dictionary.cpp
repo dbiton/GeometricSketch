@@ -1,12 +1,14 @@
 #include "Dictionary.h"
 
-Dictionary::Dictionary()
-{
-}
+Dictionary::Dictionary() {}
+
+Dictionary::~Dictionary() {}
 
 UnorderedMapDictionary::UnorderedMapDictionary() : Dictionary()
 {
 }
+
+UnorderedMapDictionary::~UnorderedMapDictionary() {}
 
 void UnorderedMapDictionary::update(uint32_t key, int amount)
 {
@@ -15,7 +17,7 @@ void UnorderedMapDictionary::update(uint32_t key, int amount)
 
 int UnorderedMapDictionary::query(uint32_t key)
 {
-    return this->unorderd_map[key];
+    return this->unordered_map[key];
 }
 
 void UnorderedMapDictionary::expand()
@@ -28,7 +30,7 @@ void UnorderedMapDictionary::shrink()
     throw std::runtime_error("UnorderedMapDictionary::shrink - should not be used.");
 }
 
-void UnorderedMapDictionary::getSize() const
+int UnorderedMapDictionary::getSize() const
 {
     throw std::runtime_error("UnorderedMapDictionary::getSize - should not be used.");
 }
@@ -43,6 +45,9 @@ int UnorderedMapDictionary::getMemoryUsage() const
 MapDictionary::MapDictionary() : Dictionary()
 {
 }
+
+MapDictionary::~MapDictionary() {}
+
 
 void MapDictionary::update(uint32_t key, int amount)
 {
@@ -62,7 +67,7 @@ void MapDictionary::shrink()
 {
     throw std::runtime_error("MapDictionary::shrink - should not be used.");
 }
-void MapDictionary::getSize() const
+int MapDictionary::getSize() const
 {
     throw std::runtime_error("MapDictionary::getSize - should not be used.");
 }
@@ -75,9 +80,11 @@ int MapDictionary::getMemoryUsage() const
     return this->map.size() * node_usage;
 }
 
-CountSketchDictionary::CountSketchDictionary(int width, int depth) : count_sketch(width, depth)
+CountSketchDictionary::CountSketchDictionary(int width, int depth) : Dictionary(), count_sketch((unsigned int)width, (unsigned int)depth)
 {
 }
+
+CountSketchDictionary::~CountSketchDictionary() {}
 
 void CountSketchDictionary::update(uint32_t key, int amount)
 {
@@ -101,7 +108,7 @@ void CountSketchDictionary::shrink()
 {
     throw std::runtime_error("CountSketchDictionary::shrink - should not be used.");
 }
-void CountSketchDictionary::getSize() const
+int CountSketchDictionary::getSize() const
 {
     throw std::runtime_error("CountSketchDictionary::getSize - should not be used.");
 }
@@ -112,11 +119,13 @@ int CountSketchDictionary::getMemoryUsage() const
     throw std::runtime_error("CountSketchDictionary::getMemoryUsage - not implemented yet.");
 }
 
-CountMinDictionary::CountMinDictionary(int width, int depth)
+CountMinDictionary::CountMinDictionary(int width, int depth, int seed) : Dictionary()
 {
     this->count_min = CM_Init(width, depth, seed);
     ;
 }
+
+CountMinDictionary::~CountMinDictionary() {}
 
 void CountMinDictionary::update(uint32_t key, int amount)
 {
@@ -137,7 +146,7 @@ void CountMinDictionary::shrink()
 {
     throw std::runtime_error("CountMinDictionary::shrink - should not be used.");
 }
-void CountMinDictionary::getSize() const
+int CountMinDictionary::getSize() const
 {
     throw std::runtime_error("CountMinDictionary::getSize - should not be used.");
 }

@@ -19,4 +19,5 @@ add_executable(DynamicSketch
     src/NaiveSketch.cpp
     src/prng.cc
     src/rand48.cc
+    src/Dictionary.cpp
 )
