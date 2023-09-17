@@ -116,8 +116,10 @@ double calculateError(Dictionary *dictionary, std::vector<uint32_t> packets, int
 
 void doPendingActions(Dictionary *dictionary, std::vector<uint32_t> packets, std::vector<ActionTimer> action_timers, int packet_index)
 {
+	std::cout << "action timers" << action_timers.size() << std::endl;
 	for (const auto &action_timer : action_timers)
 	{
+		std::cout << action_timer.action_name << std::endl;
 		if (packet_index % action_timer.packets_per_action == 0)
 		{
 			std::string action_name = action_timer.action_name;
@@ -177,8 +179,10 @@ void doPendingActions(Dictionary *dictionary, std::vector<uint32_t> packets, std
 
 void run(Dictionary *dictionary, const std::vector<uint32_t>& packets, std::vector<ActionTimer> action_timers)
 {
+	std::cout << packets.size() << std::endl;
 	for (int i = 0; i < packets.size(); i++)
 	{
+		std::cout << i << std::endl;
 		doPendingActions(dictionary, packets, action_timers, i);
 		uint32_t packet = packets[i];
 		dictionary->update(packet, 1);
