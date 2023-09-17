@@ -162,10 +162,9 @@ int DynamicSketch::nextAt(int index, int value)
 	while (++index < nodes_vector.size())
 	{
 		auto node = nodes_vector[index];
-		if (node->min_key <= value)
+		if (node->min_key <= value && node->max_key >= value)
 		{
-			if (node->max_key >= value)
-				return index;
+			return index;
 		}
 		else
 			return -1;

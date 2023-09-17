@@ -94,24 +94,24 @@ Dictionary *createDictionary(std::string type)
 	}
 }
 
-double calculateAccuracy(Dictionary *dictionary, std::vector<uint32_t> packets, int packet_index)
+double calculateError(Dictionary *dictionary, std::vector<uint32_t> packets, int packet_index)
 {
+	if (packet_index == 0) return 0;
 	std::unordered_map<uint32_t, int> hashtable;
 	for (int i = 0; i < packet_index; i++)
 	{
-		hashtable[packets[i]]++;
+		hashtable[packets[i]] += 1;
 	}
 
-	double accuracy = 0;
+	double delta = 0.0;
 	for (auto const &packet_count_pair : hashtable)
 	{
 		uint32_t packet = packet_count_pair.first;
 		int count = packet_count_pair.second;
 		int dictionary_estimate = dictionary->query(packet);
-		accuracy += std::abs(dictionary_estimate - count) / hashtable.size();
+		delta += std::abs(dictionary_estimate - count) ;
 	}
-
-	return accuracy;
+	return delta / hashtable.size();
 }
 
 void doPendingActions(Dictionary *dictionary, std::vector<uint32_t> packets, std::vector<ActionTimer> action_timers, int packet_index)
@@ -159,23 +159,23 @@ void doPendingActions(Dictionary *dictionary, std::vector<uint32_t> packets, std
 			}
 			else if (action_name == "log_memory_usage")
 			{
-				std::cout << "{memory_usage:" << dictionary->getMemoryUsage() << "}" << std::endl;
+				std::cout << "{memory_usage:" << dictionary->getMemoryUsage() <<",index"<< packet_index << "}" << std::endl;
 			}
-			else if (action_name == "log_accuracy")
+			else if (action_name == "log_error")
 			{
-				double accuracy = calculateAccuracy(dictionary, packets, packet_index);
-				std::cout << "{log_accuracy:" << accuracy << "}" << std::endl;
+				double error = calculateError(dictionary, packets, packet_index);
+				std::cout << "{log_error:" << error << ",index:"  << packet_index << "}" << std::endl;
 			}
 			else if (action_name == "log_size")
 			{
 				int size = dictionary->getSize();
-				std::cout << "{log_size:" << size << "}";
+				std::cout << "{log_size:" << size << ",index:" << packet_index << "}" << std::endl;
 			}
 		}
 	}
 }
 
-void run(Dictionary *dictionary, std::vector<uint32_t> packets, std::vector<ActionTimer> action_timers)
+void run(Dictionary *dictionary, const std::vector<uint32_t>& packets, std::vector<ActionTimer> action_timers)
 {
 	for (int i = 0; i < packets.size(); i++)
 	{
@@ -185,21 +185,26 @@ void run(Dictionary *dictionary, std::vector<uint32_t> packets, std::vector<Acti
 	}
 }
 
-int main(int argc, char *argv[])
+void proccess_input(int argc, char *argv[])
 {
-	Dictionary *dictionary;
+	Dictionary* dictionary = nullptr;
 	std::vector<uint32_t> packets;
 	std::vector<ActionTimer> action_timers;
 	int i = 0;
-	while (i < argc - 1)
+	while (argv[++i])
 	{
-		std::string arg = argv[++i];
-		std::cout << "arg " << i << ":" << arg << std::endl;
+		std::string arg = argv[i];
 
 		if (arg == "--file" || arg == "-f")
 		{
 			std::string path = argv[++i];
 			loadPacketsFromFile(path, &packets);
+		}
+		if (arg == "--limit_file" || arg == "-l")
+		{
+			std::string path = argv[++i];
+			int max_packets = stoi(argv[++i]);
+			loadPacketsFromFile(path, &packets, max_packets);
 		}
 		else if (arg == "--packets" || arg == "-p")
 		{
@@ -234,4 +239,30 @@ int main(int argc, char *argv[])
 		}
 	}
 	run(dictionary, packets, action_timers);
+}
+
+int main(int argc, char* argv[]) {
+	std::string cmd = "--limit_file C:\\Users\\USER2\\Desktop\\projects\\DynamicSketch\\pcaps\\large.out 500000 --type dynamic --repeat 1000 log_error --repeat 1000 log_size --repeat 10000 expand --repeat 30000 shrink";
+
+	std::vector<char*> args;
+	std::istringstream iss(cmd);
+
+	args.push_back("");
+	std::string token;
+	while (iss >> token) {
+		char* arg = new char[token.size() + 1];
+		copy(token.begin(), token.end(), arg);
+		arg[token.size()] = '\0';
+		args.push_back(arg);
+	}
+	args.push_back(0);
+
+	proccess_input(args.size(), &args[0]);
+
+	/*
+	for (size_t i = 0; i < args.size(); i++)
+		delete[] args[i];
+	*/
+	
+	return 0;
 }
