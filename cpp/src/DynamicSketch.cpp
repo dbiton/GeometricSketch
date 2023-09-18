@@ -1,5 +1,8 @@
 #include "DynamicSketch.h"
+
 #include <algorithm>
+
+int bucket_count = 5;
 
 DynamicSketch::DynamicSketch(int width, int depth, int _seed) : Dictionary(), seed(_seed)
 {
@@ -24,16 +27,7 @@ void DynamicSketch::update(uint32_t item, int diff)
 	}
 
 	assert(node);
-	node->updates_counter++;
-	node->num_events++;
-	if (node->updates_counter == 1)
-	{
-		node->updates_average = item;
-	}
-	else
-	{
-		node->updates_average += item / node->updates_counter - node->updates_average / node->updates_counter;
-	}
+	node->updateMedianSinceLastClear(item, diff);
 	CM_Update(node->sketch, item, diff);
 }
 
@@ -60,7 +54,7 @@ void DynamicSketch::expand()
 	for (int i = 1; i < nodes_vector.size(); i++)
 	{
 		Node *node = nodes_vector[i];
-		if (node->updates_counter > node_max->updates_counter)
+		if (node->updatesSinceLastClear() > node_max->updatesSinceLastClear())
 		{
 			node_max = node;
 			range_max.first = node->min_key;
@@ -68,7 +62,7 @@ void DynamicSketch::expand()
 			index_max = i;
 		}
 	}
-	auto range_child = node_max->flip_flop ? std::make_pair(node_max->updates_average, range_max.second) : std::make_pair(range_max.first, node_max->updates_average);
+	auto range_child = std::make_pair(node_max->min_key, node_max->estimateMedianSinceLastClear());
 	Node *node_child = new DynamicSketch::Node(node_max->sketch->width, node_max->sketch->depth, seed, range_child.first, range_child.second);
 
 	// sorted insertion into nodes_vector
@@ -76,9 +70,7 @@ void DynamicSketch::expand()
 	auto it = std::lower_bound(nodes_vector.begin(), nodes_vector.end(), node_child, Node::compareMinKey);
 	nodes_vector.insert(it, node_child);
 
-	node_max->flip_flop = !node_max->flip_flop;
-	node_max->updates_counter = 0;
-	node_max->updates_average = range_max.first / 2 + range_max.second / 2;
+	clearAllBuckets();
 }
 
 void DynamicSketch::shrink()
@@ -130,6 +122,7 @@ void DynamicSketch::shrink()
 		node_parent_min->num_events += node_child_min->num_events;
 		delete node_child_min;
 	}
+	clearAllBuckets();
 }
 
 int DynamicSketch::getSize() const
@@ -174,11 +167,9 @@ int DynamicSketch::nextAt(int index, int value)
 
 DynamicSketch::Node::Node(int width, int depth, int seed, uint32_t _min_key, uint32_t _max_key) : sketch(nullptr),
 																								  num_events(0),
-																								  updates_counter(0),
-																								  updates_average(0),
-																								  flip_flop(rand()),
 																								  min_key(_min_key),
-																								  max_key(_max_key)
+																								  max_key(_max_key),
+																								  buckets(bucket_count, 0)
 {
 	sketch = CM_Init(width, depth, seed);
 }
@@ -186,4 +177,55 @@ DynamicSketch::Node::Node(int width, int depth, int seed, uint32_t _min_key, uin
 bool DynamicSketch::Node::compareMinKey(Node *n0, Node *n1)
 {
 	return n0->min_key < n1->min_key;
+}
+
+void DynamicSketch::Node::clearBuckets()
+{
+	buckets = std::vector<int>(bucket_count, 0);
+}
+
+void DynamicSketch::Node::updateMedianSinceLastClear(uint32_t key, int amount)
+{
+	num_events+=amount;
+	int bucket_width = (max_key - min_key) / bucket_count;
+	int bucket_index = std::min((int)(key - min_key)/bucket_width, bucket_count - 1);
+	buckets[bucket_index] += amount;
+}
+
+int DynamicSketch::Node::updatesSinceLastClear() const
+{
+	int n = 0;
+	for (int i = 0; i < bucket_count; i++)
+	{
+		n += buckets[i];
+	}
+	return n;
+}
+
+uint32_t DynamicSketch::Node::estimateMedianSinceLastClear() const
+{
+	int bucket_width = (max_key - min_key) / bucket_count;
+	int updates_since_last_clear = updatesSinceLastClear();
+	if (updates_since_last_clear == 0)
+	{
+		return (max_key - min_key) / 2;
+	}
+	int updates_in_buckets = 0;
+	int prev_delta = INT_MAX;
+	for (int i = 0; i < bucket_count; i++)
+	{
+		updates_in_buckets += buckets[i];
+		int delta = std::abs(updates_in_buckets * 2 - updates_since_last_clear);
+		if (delta > prev_delta)
+		{
+			return min_key + bucket_width * (i);
+		}
+	}
+	return max_key - bucket_width;
+}
+
+void DynamicSketch::clearAllBuckets(){
+	for (const auto& node : nodes_vector){
+		node->clearBuckets();
+	}
 }
