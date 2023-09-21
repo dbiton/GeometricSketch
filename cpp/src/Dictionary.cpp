@@ -122,7 +122,6 @@ int CountSketchDictionary::getMemoryUsage() const
 CountMinDictionary::CountMinDictionary(int width, int depth, int seed) : Dictionary()
 {
     this->count_min = CM_Init(width, depth, seed);
-    ;
 }
 
 CountMinDictionary::~CountMinDictionary() {}

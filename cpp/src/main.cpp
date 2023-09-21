@@ -35,7 +35,7 @@ struct ActionTimer
 	}
 };
 
-void loadPacketsFromArgs(char *argv[], int &i, int packet_num, std::vector<uint32_t> *packets, int max_packets = -1)
+void loadPacketsFromArgs(const char *argv[], int &i, int packet_num, std::vector<uint32_t> *packets, int max_packets = -1)
 {
 	packets->clear();
 	uint32_t ipaddr;
@@ -80,11 +80,11 @@ Dictionary *createDictionary(std::string type)
 	{
 		return new DynamicSketch(CM_WIDTH, CM_DEPTH, SEED);
 	}
-	else if (type == "count_min")
+	else if (type == "countmin")
 	{
 		return new CountMinDictionary(CM_WIDTH, CM_DEPTH, SEED);
 	}
-	else if (type == "count_sketch")
+	else if (type == "countsketch")
 	{
 		return new CountSketchDictionary(CM_WIDTH, CM_DEPTH);
 	}
@@ -116,10 +116,8 @@ double calculateError(Dictionary *dictionary, std::vector<uint32_t> packets, int
 
 void doPendingActions(Dictionary *dictionary, std::vector<uint32_t> packets, std::vector<ActionTimer> action_timers, int packet_index)
 {
-	std::cout << "action timers" << action_timers.size() << std::endl;
 	for (const auto &action_timer : action_timers)
 	{
-		std::cout << action_timer.action_name << std::endl;
 		if (packet_index % action_timer.packets_per_action == 0)
 		{
 			std::string action_name = action_timer.action_name;
@@ -161,17 +159,20 @@ void doPendingActions(Dictionary *dictionary, std::vector<uint32_t> packets, std
 			}
 			else if (action_name == "log_memory_usage")
 			{
-				std::cout << "{memory_usage:" << dictionary->getMemoryUsage() <<",index"<< packet_index << "}" << std::endl;
+				std::cout << "{\"memory_usage\":" << dictionary->getMemoryUsage() <<",\"index\""<< packet_index << "}" << std::endl;
 			}
 			else if (action_name == "log_error")
 			{
 				double error = calculateError(dictionary, packets, packet_index);
-				std::cout << "{log_error:" << error << ",index:"  << packet_index << "}" << std::endl;
+				std::cout << "{\"log_error\":" << error << ",\"index\":"  << packet_index << "}" << std::endl;
 			}
 			else if (action_name == "log_size")
 			{
 				int size = dictionary->getSize();
-				std::cout << "{log_size:" << size << ",index:" << packet_index << "}" << std::endl;
+				std::cout << "{\"log_size\":" << size << ",\"index\":" << packet_index << "}" << std::endl;
+			}
+			else {
+				throw std::invalid_argument(action_name + "?");
 			}
 		}
 	}
@@ -179,17 +180,15 @@ void doPendingActions(Dictionary *dictionary, std::vector<uint32_t> packets, std
 
 void run(Dictionary *dictionary, const std::vector<uint32_t>& packets, std::vector<ActionTimer> action_timers)
 {
-	std::cout << packets.size() << std::endl;
 	for (int i = 0; i < packets.size(); i++)
 	{
-		std::cout << i << std::endl;
 		doPendingActions(dictionary, packets, action_timers, i);
 		uint32_t packet = packets[i];
 		dictionary->update(packet, 1);
 	}
 }
 
-void proccess_input(int argc, char *argv[])
+void proccess_input(int argc, const char *argv[])
 {
 	Dictionary* dictionary = nullptr;
 	std::vector<uint32_t> packets;
@@ -204,7 +203,7 @@ void proccess_input(int argc, char *argv[])
 			std::string path = argv[++i];
 			loadPacketsFromFile(path, &packets);
 		}
-		if (arg == "--limit_file" || arg == "-l")
+		else if (arg == "--limit_file" || arg == "-l")
 		{
 			std::string path = argv[++i];
 			int max_packets = stoi(argv[++i]);
@@ -245,10 +244,11 @@ void proccess_input(int argc, char *argv[])
 	run(dictionary, packets, action_timers);
 }
 
-int main(int argc, char* argv[]) {
-	std::string cmd = "--limit_file C:\\Users\\USER2\\Desktop\\projects\\DynamicSketch\\pcaps\\large.out 500000 --type dynamic --repeat 1000 log_error --repeat 1000 log_size --repeat 10000 expand --repeat 30000 shrink";
 
-	std::vector<char*> args;
+int manual_argument() {
+	std::string cmd = "--limit_file C:/Users/USER2/Desktop/projects/DynamicSketch/pcaps/capture.txt 1000000 --type countmin --repeat 1000 log_error";
+
+	std::vector<const char*> args;
 	std::istringstream iss(cmd);
 
 	args.push_back("");
@@ -262,11 +262,13 @@ int main(int argc, char* argv[]) {
 	args.push_back(0);
 
 	proccess_input(args.size(), &args[0]);
-
-	/*
 	for (size_t i = 0; i < args.size(); i++)
 		delete[] args[i];
-	*/
-	
 	return 0;
+}
+
+
+int main(int argc, const char* argv[]) {
+	//manual_argument();
+	proccess_input(argc, argv);
 }
