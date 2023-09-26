@@ -9,12 +9,19 @@
 #include "ElasticSketch.h"
 #include "Dictionary.h"
 
+typedef std::chrono::high_resolution_clock chrono_clock;
+typedef std::chrono::duration<double, std::milli> duration;
+
 constexpr float epsilon = 0.1;
 constexpr float delta = 0.1;
 constexpr int SEED = 0x1337C0D3;
 constexpr int NUM_PACKETS = 1024 * 1024 * 32;
-const int CM_WIDTH = ceil(exp(1) / epsilon);
-const int CM_DEPTH = ceil(log(1 / delta));
+int CM_WIDTH = ceil(exp(1) / epsilon);
+int CM_DEPTH = ceil(log(1 / delta));
+
+duration duration_update = duration::zero();
+duration duration_expand = duration::zero();;
+duration duration_shrink = duration::zero();;
 
 // --file path-- type dynamic-- repeat[command num][modify_size_random | modify_size_cyclic | expand | shrink | log_memory_usage | log_size | log_time][times]-- time
 // --packets [num] [packet0] ...
@@ -26,9 +33,11 @@ struct ActionTimer
 	// additional info for modify_size_cyclic and modify_size_random
 	int max_size;
 	int min_size;
+	bool modify_size_cyclic_expand;
 
-	ActionTimer(std::string _action_name, int _packets_per_action) : action_name(_action_name), packets_per_action(_packets_per_action) {}
-	void setSizeLimits(int _max_size, int _min_size)
+	ActionTimer(std::string _action_name, int _packets_per_action) : action_name(_action_name), packets_per_action(_packets_per_action), modify_size_cyclic_expand(true) {}
+
+	void setSizeLimits(int _min_size, int _max_size)
 	{
 		max_size = _max_size;
 		min_size = _min_size;
@@ -94,7 +103,29 @@ Dictionary *createDictionary(std::string type)
 	}
 }
 
-double calculateError(Dictionary *dictionary, std::vector<uint32_t> packets, int packet_index)
+
+double calculateMeanAbsoluteError(Dictionary* dictionary, const std::vector<uint32_t>& packets, int packet_index)
+{
+	if (packet_index == 0) return 0;
+	std::unordered_map<uint32_t, int> hashtable;
+	for (int i = 0; i < packet_index; i++)
+	{
+		hashtable[packets[i]] += 1;
+	}
+
+	double delta = 0.0;
+	for (auto const& packet_count_pair : hashtable)
+	{
+		uint32_t packet = packet_count_pair.first;
+		int count = packet_count_pair.second;
+		int dictionary_estimate = dictionary->query(packet);
+		double mae = std::abs(dictionary_estimate - count);
+		delta += mae;
+	}
+	return delta / hashtable.size();
+}
+
+double calculateMeanSquaredError(Dictionary *dictionary, const std::vector<uint32_t>& packets, int packet_index)
 {
 	if (packet_index == 0) return 0;
 	std::unordered_map<uint32_t, int> hashtable;
@@ -109,16 +140,23 @@ double calculateError(Dictionary *dictionary, std::vector<uint32_t> packets, int
 		uint32_t packet = packet_count_pair.first;
 		int count = packet_count_pair.second;
 		int dictionary_estimate = dictionary->query(packet);
-		delta += std::abs(dictionary_estimate - count) ;
+		double mse = std::pow(dictionary_estimate - count, 2);
+		delta += mse;
 	}
 	return delta / hashtable.size();
 }
 
-void doPendingActions(Dictionary *dictionary, std::vector<uint32_t> packets, std::vector<ActionTimer> action_timers, int packet_index)
+std::set<int> uniquePacketsBeforeIndex(const std::vector<uint32_t>& packets, int packet_index) {
+	auto it_first = packets.begin();
+	auto it_last = packets.begin() + packet_index;
+	return std::set<int>(it_first, it_last);
+}
+
+void doPendingActions(Dictionary* dictionary, const std::vector<uint32_t>& packets, std::vector<ActionTimer>& action_timers, int packet_index)
 {
-	for (const auto &action_timer : action_timers)
+	for (auto& action_timer : action_timers)
 	{
-		if (packet_index % action_timer.packets_per_action == 0)
+		if (packet_index % action_timer.packets_per_action == 0 && packet_index > 0)
 		{
 			std::string action_name = action_timer.action_name;
 			if (action_name == "expand")
@@ -156,20 +194,74 @@ void doPendingActions(Dictionary *dictionary, std::vector<uint32_t> packets, std
 			else if (action_name == "modify_size_cyclic")
 			{
 				int size = dictionary->getSize();
+				if (size == action_timer.max_size)
+				{
+					action_timer.modify_size_cyclic_expand = false;
+				}
+				else if (size == action_timer.min_size)
+				{
+					action_timer.modify_size_cyclic_expand = true;
+				}
+
+				if (action_timer.modify_size_cyclic_expand) {
+					dictionary->expand();
+				}
+				else {
+					dictionary->shrink();
+				}
+				size = dictionary->getSize();
 			}
 			else if (action_name == "log_memory_usage")
 			{
-				std::cout << "{\"memory_usage\":" << dictionary->getMemoryUsage() <<",\"index\""<< packet_index << "}" << std::endl;
+				std::cout << "{\"memory_usage\":" << dictionary->getMemoryUsage() << ",\"index\":" << packet_index << "}" << std::endl;
 			}
-			else if (action_name == "log_error")
+			else if (action_name == "log_mean_squared_error")
 			{
-				double error = calculateError(dictionary, packets, packet_index);
-				std::cout << "{\"log_error\":" << error << ",\"index\":"  << packet_index << "}" << std::endl;
+				double error = calculateMeanSquaredError(dictionary, packets, packet_index);
+				std::cout << "{\"log_mean_squared_error\":" << error << ",\"index\":" << packet_index << "}" << std::endl;
+			}
+			else if (action_name == "log_mean_absolute_error")
+			{
+				double error = calculateMeanAbsoluteError(dictionary, packets, packet_index);
+				std::cout << "{\"log_mean_absolute_error\":" << error << ",\"index\":" << packet_index << "}" << std::endl;
 			}
 			else if (action_name == "log_size")
 			{
 				int size = dictionary->getSize();
 				std::cout << "{\"log_size\":" << size << ",\"index\":" << packet_index << "}" << std::endl;
+			}
+			else if (action_name == "log_dynamic_sketches_loads")
+			{
+				DynamicSketch* dynamic_dictionary = dynamic_cast<DynamicSketch*>(dictionary);
+				if (!dynamic_dictionary) {
+					throw std::invalid_argument("log_dynamic_sketches_loads only legal for --type dynamic");
+				}
+				dynamic_dictionary->printInfo();
+			}
+			else if (action_name == "log_update_time")
+			{
+				double update_time = duration_update.count() / ((double)action_timer.packets_per_action);
+				std::cout << "{\"log_update_time\":" << update_time << ",\"index\":" << packet_index << "}" << std::endl;
+				duration_update = duration::zero();
+			}
+			else if (action_name == "log_query_time")
+			{
+				auto unique_packets_so_far = uniquePacketsBeforeIndex(packets, packet_index + 1);
+				duration duration_query = duration::zero();
+				for (const auto& packet : unique_packets_so_far)
+				{
+					auto t0 = chrono_clock::now();
+					dictionary->query(packet);
+					duration_query += chrono_clock::now() - t0;
+				}
+				double query_time = duration_query.count() / ((double)unique_packets_so_far.size());
+				std::cout << "{\"log_query_time\":" << query_time << ",\"index\":" << packet_index << "}" << std::endl;
+			}
+			else if (action_name == "log_unique_packet_count")
+			{
+				auto unique_packets_so_far = uniquePacketsBeforeIndex(packets, packet_index + 1);
+				int unique_packet_count = unique_packets_so_far.size();
+				std::cout << "{\"log_unique_packet_count\":" << unique_packet_count << ",\"index\":" << packet_index << "}" << std::endl;
 			}
 			else {
 				throw std::invalid_argument(action_name + "?");
@@ -180,16 +272,23 @@ void doPendingActions(Dictionary *dictionary, std::vector<uint32_t> packets, std
 
 void run(Dictionary *dictionary, const std::vector<uint32_t>& packets, std::vector<ActionTimer> action_timers)
 {
+	//std::cout << "{\"memory_usage\":" << dictionary->getMemoryUsage() << ",\"index\":" << 0 << "}" << std::endl;
+	//std::cout << "{\"log_mean_squared_error\":" << 0 << ",\"index\":" << 0 << "}" << std::endl;
+	//std::cout << "{\"log_size\":" << 1 << ",\"index\":" << 0 << "}" << std::endl;
+	
 	for (int i = 0; i < packets.size(); i++)
 	{
 		doPendingActions(dictionary, packets, action_timers, i);
 		uint32_t packet = packets[i];
+		auto t0 = chrono_clock::now();
 		dictionary->update(packet, 1);
+		duration_update += chrono_clock::now() - t0;
 	}
 }
 
-void proccess_input(int argc, const char *argv[])
+void proccess_input(int argc, const char* argv[])
 {
+	std::string type = "";
 	Dictionary* dictionary = nullptr;
 	std::vector<uint32_t> packets;
 	std::vector<ActionTimer> action_timers;
@@ -211,26 +310,33 @@ void proccess_input(int argc, const char *argv[])
 		}
 		else if (arg == "--packets" || arg == "-p")
 		{
-			int packet_num = stoi(argv[i++]);
+			int packet_num = stoi(argv[++i]);
 			loadPacketsFromArgs(argv, i, packet_num, &packets);
 		}
 		else if (arg == "--type" || arg == "-t")
 		{
-			std::string type = argv[++i];
-			if (dictionary)
+			if (type.length() > 0)
 			{
 				throw std::invalid_argument("only one --type allowed");
 			}
-			dictionary = createDictionary(type);
+			type = argv[++i];
+		}
+		else if (arg == "--width")
+		{
+			CM_WIDTH = stoi(argv[++i]);
+		}
+		else if (arg == "--depth")
+		{
+			CM_DEPTH = stoi(argv[++i]);
 		}
 		else if (arg == "--repeat" || arg == "-r")
 		{
-			int packets_per_action = stoi(argv[++i]);
 			std::string action_name = argv[++i];
+			int packets_per_action = stoi(argv[++i]);
 			ActionTimer action_timer = ActionTimer(action_name, packets_per_action);
 			if (action_name == "modify_size_cyclic" || action_name == "modify_size_random")
 			{
-				int min_size = stoi(argv[++i]);
+				int min_size = 1;
 				int max_size = stoi(argv[++i]);
 				action_timer.setSizeLimits(min_size, max_size);
 			}
@@ -241,12 +347,18 @@ void proccess_input(int argc, const char *argv[])
 			throw std::invalid_argument(arg + "?");
 		}
 	}
-	run(dictionary, packets, action_timers);
+	if (type.length() > 0) {
+		dictionary = createDictionary(type);
+		run(dictionary, packets, action_timers);
+	}
+	else {
+		throw std::invalid_argument("--type required");
+	}
 }
 
 
 int manual_argument() {
-	std::string cmd = "--limit_file C:/Users/USER2/Desktop/projects/DynamicSketch/pcaps/capture.txt 1000000 --type countmin --repeat 1000 log_error";
+	std::string cmd = "--limit_file C:\\Users\\USER2\\Desktop\\projects\\DynamicSketch\\pcaps\\capture.txt 1000000 --type dynamic --repeat log_update_time 15625 --repeat log_query_time 15625 --repeat expand 15625 --repeat log_dynamic_sketches_loads 15625";
 
 	std::vector<const char*> args;
 	std::istringstream iss(cmd);
@@ -263,12 +375,12 @@ int manual_argument() {
 
 	proccess_input(args.size(), &args[0]);
 	for (size_t i = 0; i < args.size(); i++)
-		delete[] args[i];
+		// delete[] args[i];
 	return 0;
 }
 
 
 int main(int argc, const char* argv[]) {
-	//manual_argument();
-	proccess_input(argc, argv);
+	manual_argument();
+	//proccess_input(argc, argv);
 }

@@ -22,7 +22,7 @@ class DynamicSketch : public Dictionary
 		Node(int width, int depth, int seed, uint32_t min_key, uint32_t max_key);
 		void clearBuckets();
 		void updateMedianSinceLastClear(uint32_t key, int amount); 
-		uint32_t estimateMedianSinceLastClear() const;
+		std::pair<uint32_t, uint32_t> getRangeWithHalfOfUpdates() const;
 		int updatesSinceLastClear() const;
 
 		static bool compareMinKey(Node* n0, Node* n1);
@@ -42,9 +42,11 @@ public:
 
     int getSize() const;
     int getMemoryUsage() const; // minimum
+
+	void printInfo() const;
 private:
 	static bool nodeComp(Node* n0, Node* n1);
-	int firstAt(int value);
-	int nextAt(int index, int value);
+	int firstAt(uint32_t item);
+	int nextAt(int sketch_index, uint32_t item);
 	void clearAllBuckets();
 };
