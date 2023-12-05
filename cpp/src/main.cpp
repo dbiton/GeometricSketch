@@ -97,6 +97,10 @@ Dictionary *createDictionary(std::string type)
 	{
 		return new CountSketchDictionary(CM_WIDTH, CM_DEPTH);
 	}
+	else if (type == "elastic")
+	{
+        return new ElasticDictionary(1, CM_WIDTH * CM_DEPTH * sizeof(int));
+	}
 	else
 	{
 		throw std::invalid_argument("--type=" + type + "?");
@@ -213,22 +217,22 @@ void doPendingActions(Dictionary* dictionary, const std::vector<uint32_t>& packe
 			}
 			else if (action_name == "log_memory_usage")
 			{
-				std::cout << "{\"memory_usage\":" << dictionary->getMemoryUsage() << ",\"index\":" << packet_index << "}" << std::endl;
+                std::cout << "{\"memory_usage\":" << dictionary->getMemoryUsage() << ",\"index\":" << packet_index << "}," << std::endl;
 			}
 			else if (action_name == "log_mean_squared_error")
 			{
 				double error = calculateMeanSquaredError(dictionary, packets, packet_index);
-				std::cout << "{\"log_mean_squared_error\":" << error << ",\"index\":" << packet_index << "}" << std::endl;
+                std::cout << "{\"log_mean_squared_error\":" << error << ",\"index\":" << packet_index << "}," << std::endl;
 			}
 			else if (action_name == "log_mean_absolute_error")
 			{
 				double error = calculateMeanAbsoluteError(dictionary, packets, packet_index);
-				std::cout << "{\"log_mean_absolute_error\":" << error << ",\"index\":" << packet_index << "}" << std::endl;
+                std::cout << "{\"log_mean_absolute_error\":" << error << ",\"index\":" << packet_index << "}," << std::endl;
 			}
 			else if (action_name == "log_size")
 			{
 				int size = dictionary->getSize();
-				std::cout << "{\"log_size\":" << size << ",\"index\":" << packet_index << "}" << std::endl;
+                std::cout << "{\"log_size\":" << size << ",\"index\":" << packet_index << "}," << std::endl;
 			}
 			else if (action_name == "log_dynamic_sketches_loads")
 			{
@@ -236,12 +240,12 @@ void doPendingActions(Dictionary* dictionary, const std::vector<uint32_t>& packe
 				if (!dynamic_dictionary) {
 					throw std::invalid_argument("log_dynamic_sketches_loads only legal for --type dynamic");
 				}
-				dynamic_dictionary->printInfo();
+                dynamic_dictionary->printInfo(packet_index);
 			}
 			else if (action_name == "log_update_time")
 			{
 				double update_time = duration_update.count() / ((double)action_timer.packets_per_action);
-				std::cout << "{\"log_update_time\":" << update_time << ",\"index\":" << packet_index << "}" << std::endl;
+                std::cout << "{\"log_update_time\":" << update_time << ",\"index\":" << packet_index << "}," << std::endl;
 				duration_update = duration::zero();
 			}
 			else if (action_name == "log_query_time")
@@ -255,13 +259,13 @@ void doPendingActions(Dictionary* dictionary, const std::vector<uint32_t>& packe
 					duration_query += chrono_clock::now() - t0;
 				}
 				double query_time = duration_query.count() / ((double)unique_packets_so_far.size());
-				std::cout << "{\"log_query_time\":" << query_time << ",\"index\":" << packet_index << "}" << std::endl;
+                std::cout << "{\"log_query_time\":" << query_time << ",\"index\":" << packet_index << "}," << std::endl;
 			}
 			else if (action_name == "log_unique_packet_count")
 			{
 				auto unique_packets_so_far = uniquePacketsBeforeIndex(packets, packet_index + 1);
 				int unique_packet_count = unique_packets_so_far.size();
-				std::cout << "{\"log_unique_packet_count\":" << unique_packet_count << ",\"index\":" << packet_index << "}" << std::endl;
+                std::cout << "{\"log_unique_packet_count\":" << unique_packet_count << ",\"index\":" << packet_index << "}," << std::endl;
 			}
 			else {
 				throw std::invalid_argument(action_name + "?");
@@ -276,6 +280,7 @@ void run(Dictionary *dictionary, const std::vector<uint32_t>& packets, std::vect
 	//std::cout << "{\"log_mean_squared_error\":" << 0 << ",\"index\":" << 0 << "}" << std::endl;
 	//std::cout << "{\"log_size\":" << 1 << ",\"index\":" << 0 << "}" << std::endl;
 	
+    std::cout << "[" << std::endl;
 	for (int i = 0; i < packets.size(); i++)
 	{
 		doPendingActions(dictionary, packets, action_timers, i);
@@ -284,6 +289,7 @@ void run(Dictionary *dictionary, const std::vector<uint32_t>& packets, std::vect
 		dictionary->update(packet, 1);
 		duration_update += chrono_clock::now() - t0;
 	}
+    std::cout << "]" << std::endl;
 }
 
 void proccess_input(int argc, const char* argv[])
@@ -357,10 +363,9 @@ void proccess_input(int argc, const char* argv[])
 }
 
 
-int manual_argument() {
-	std::string cmd = "--limit_file C:\\Users\\USER2\\Desktop\\projects\\DynamicSketch\\pcaps\\capture.txt 1000000 --type dynamic --repeat log_update_time 15625 --repeat log_query_time 15625 --repeat expand 15625 --repeat log_dynamic_sketches_loads 15625";
-
-	std::vector<const char*> args;
+void manual_argument() {
+    std::string cmd = "--limit_file /home/dbiton/Desktop/Projects/DynamicSketch/pcaps/capture.txt 10000 --type elastic --repeat log_mean_absolute_error 78";
+    std::vector<const char*> args;
 	std::istringstream iss(cmd);
 
 	args.push_back("");
@@ -374,13 +379,13 @@ int manual_argument() {
 	args.push_back(0);
 
 	proccess_input(args.size(), &args[0]);
-	for (size_t i = 0; i < args.size(); i++)
-		// delete[] args[i];
-	return 0;
+    /*for (size_t i = 0; i < args.size(); i++){
+         delete[] args[i];
+    }*/
 }
 
 
 int main(int argc, const char* argv[]) {
-	manual_argument();
-	//proccess_input(argc, argv);
+    //manual_argument();
+    proccess_input(argc, argv);
 }

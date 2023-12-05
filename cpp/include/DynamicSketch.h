@@ -43,7 +43,7 @@ public:
     int getSize() const;
     int getMemoryUsage() const; // minimum
 
-	void printInfo() const;
+    void printInfo(int index) const;
 private:
 	static bool nodeComp(Node* n0, Node* n1);
 	int firstAt(uint32_t item);

@@ -1,4 +1,5 @@
 #include "Dictionary.h"
+#include "param.h"
 
 Dictionary::Dictionary() {}
 
@@ -47,7 +48,6 @@ MapDictionary::MapDictionary() : Dictionary()
 }
 
 MapDictionary::~MapDictionary() {}
-
 
 void MapDictionary::update(uint32_t key, int amount)
 {
@@ -153,4 +153,40 @@ int CountMinDictionary::getSize() const
 int CountMinDictionary::getMemoryUsage() const
 {
     return CM_Size(this->count_min);
+}
+
+ElasticDictionary::ElasticDictionary(const int _bucket_num, const int _total_memory_in_bytes) : bucket_num(_bucket_num),
+                                                                                    total_memory_in_bytes(_total_memory_in_bytes),
+                                                                                    elastic_sketch(nullptr)
+{
+    elastic_sketch = new ElasticSketch(bucket_num, total_memory_in_bytes);
+}
+
+ElasticDictionary::~ElasticDictionary() {}
+
+void ElasticDictionary::update(uint32_t key, int amount)
+{
+    auto p = static_cast<ElasticSketch*>(elastic_sketch);
+    p->insert((uint8_t *)&key, amount);
+}
+int ElasticDictionary::query(uint32_t key)
+{
+    auto p = static_cast<ElasticSketch*>(elastic_sketch);
+    return p->query((uint8_t *)&key);
+}
+
+void ElasticDictionary::expand()
+{
+    throw std::runtime_error("ElasticDictionary::expand - should not be used.");
+}
+void ElasticDictionary::shrink()
+{
+    throw std::runtime_error("ElasticDictionary::shrink - should not be used.");
+}
+int ElasticDictionary::getSize() const
+{
+    throw std::runtime_error("ElasticDictionary::getSize - should not be used.");
+}
+int ElasticDictionary::getMemoryUsage() const {
+    return total_memory_in_bytes;
 }

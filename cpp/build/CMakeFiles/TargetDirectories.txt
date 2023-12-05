@@ -1,3 +1,0 @@
-/home/dbiton/Desktop/projects/DynamicSketch/cpp/build/CMakeFiles/DynamicSketch.dir
-/home/dbiton/Desktop/projects/DynamicSketch/cpp/build/CMakeFiles/edit_cache.dir
-/home/dbiton/Desktop/projects/DynamicSketch/cpp/build/CMakeFiles/rebuild_cache.dir

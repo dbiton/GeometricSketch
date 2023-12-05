@@ -260,11 +260,10 @@ void DynamicSketch::clearAllBuckets(){
 	}
 }
 
-void DynamicSketch::printInfo() const {
-	std::cout << "{";
+void DynamicSketch::printInfo(int packet_index) const {
+    std::cout << "{\"index\":" << packet_index << ",\"loads\":[";
 	for (int j = 0; j < nodes_vector.size(); j++) {
 		auto node = nodes_vector[j];
-		if (j > 0) std::cout << ",";
 		std::cout << "{";
 		std::cout << "\"min_key\":" << node->min_key << ",\"max_key\":" << node->max_key << ",\"updates_since_last_clear\":" << node->updatesSinceLastClear();
 		std::cout << ",\"num_events\":" << node->num_events << ",\"buckets\":[" << std::endl;
@@ -273,8 +272,14 @@ void DynamicSketch::printInfo() const {
 			uint32_t min_key = node->min_key + i * bucket_width;
 			uint32_t max_key = node->min_key + (i + 1) * bucket_width;
 			std::cout << "	{\"min_key\":" << min_key << ",\"max_key\":" << max_key << ",\"counter\":" << node->buckets[i] << "}" << std::endl;
+            if (i < node->buckets.size()-1){
+                std::cout << ",";
+            }
 		}
-		std::cout << "]}";
+        std::cout << "]}";
+        if (j < nodes_vector.size()-1){
+            std::cout << ",";
+        }
 	}
-	std::cout << "}" << std::endl;
+    std::cout << "]}," << std::endl;
 }

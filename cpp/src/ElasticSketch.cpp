@@ -1,14 +1,12 @@
 #include "ElasticSketch.h"
 
-template<int bucket_num, int tot_memory_in_bytes>
-void ElasticSketch<bucket_num, tot_memory_in_bytes>::clear()
+void ElasticSketch::clear()
 {
     heavy_part.clear();
     light_part.clear();
 }
 
-template<int bucket_num, int tot_memory_in_bytes>
-void ElasticSketch<bucket_num, tot_memory_in_bytes>::insert(uint8_t *key, int f)
+void ElasticSketch::insert(uint8_t *key, int f)
 {
     uint8_t swap_key[KEY_LENGTH_4];
     uint32_t swap_val = 0;
@@ -30,14 +28,12 @@ void ElasticSketch<bucket_num, tot_memory_in_bytes>::insert(uint8_t *key, int f)
     }
 }
 
-template<int bucket_num, int tot_memory_in_bytes>
-void ElasticSketch<bucket_num, tot_memory_in_bytes>::quick_insert(uint8_t *key, int f)
+void ElasticSketch::quick_insert(uint8_t *key, int f)
 {
     heavy_part.quick_insert(key, f);
 }
 
-template<int bucket_num, int tot_memory_in_bytes>
-int ElasticSketch<bucket_num, tot_memory_in_bytes>::query(uint8_t *key)
+int ElasticSketch::query(uint8_t *key)
 {
     uint32_t heavy_result = heavy_part.query(key);
     if(heavy_result == 0 || HIGHEST_BIT_IS_1(heavy_result))
@@ -48,8 +44,7 @@ int ElasticSketch<bucket_num, tot_memory_in_bytes>::query(uint8_t *key)
     return heavy_result;
 }
 
-template<int bucket_num, int tot_memory_in_bytes>
-int ElasticSketch<bucket_num, tot_memory_in_bytes>::query_compressed_part(uint8_t *key, uint8_t *compress_part, int compress_counter_num)
+int ElasticSketch::query_compressed_part(uint8_t *key, uint8_t *compress_part, int compress_counter_num)
 {
     uint32_t heavy_result = heavy_part.query(key);
     if(heavy_result == 0 || HIGHEST_BIT_IS_1(heavy_result))
@@ -60,16 +55,14 @@ int ElasticSketch<bucket_num, tot_memory_in_bytes>::query_compressed_part(uint8_
     return heavy_result;
 }
 
-template<int bucket_num, int tot_memory_in_bytes>
-double ElasticSketch<bucket_num, tot_memory_in_bytes>::get_bandwidth(int compress_ratio) 
+double ElasticSketch::get_bandwidth(int compress_ratio) 
 {
     int result = heavy_part.get_memory_usage();
     result += get_compress_width(compress_ratio) * sizeof(uint8_t);
     return result * 1.0 / 1024 / 1024;
 }
 
-template<int bucket_num, int tot_memory_in_bytes>
-void ElasticSketch<bucket_num, tot_memory_in_bytes>::get_heavy_hitters(int threshold, vector<pair<string, int>> & results)
+void ElasticSketch::get_heavy_hitters(int threshold, vector<pair<string, int>> & results)
 {
     for (int i = 0; i < bucket_num; ++i) 
         for (int j = 0; j < MAX_VALID_COUNTER; ++j) 
@@ -82,8 +75,7 @@ void ElasticSketch<bucket_num, tot_memory_in_bytes>::get_heavy_hitters(int thres
         }
 }
 
-template<int bucket_num, int tot_memory_in_bytes>
-int ElasticSketch<bucket_num, tot_memory_in_bytes>::get_cardinality()
+int ElasticSketch::get_cardinality()
 {
     int card = light_part.get_cardinality();
     for(int i = 0; i < bucket_num; ++i)
@@ -105,8 +97,7 @@ int ElasticSketch<bucket_num, tot_memory_in_bytes>::get_cardinality()
     return card;
 }
 
-template<int bucket_num, int tot_memory_in_bytes>
-double ElasticSketch<bucket_num, tot_memory_in_bytes>::get_entropy()
+double ElasticSketch::get_entropy()
 {
     int tot = 0;
     double entr = 0;
@@ -140,8 +131,7 @@ double ElasticSketch<bucket_num, tot_memory_in_bytes>::get_entropy()
     return -entr / tot + log2(tot);
 }
 
-template<int bucket_num, int tot_memory_in_bytes>
-void ElasticSketch<bucket_num, tot_memory_in_bytes>::get_distribution(vector<double> &dist)
+void ElasticSketch::get_distribution(vector<double> &dist)
 {
     light_part.get_distribution(dist);
 
@@ -169,8 +159,7 @@ void ElasticSketch<bucket_num, tot_memory_in_bytes>::get_distribution(vector<dou
         }
 }
 
-template<int bucket_num, int tot_memory_in_bytes>
-void* ElasticSketch<bucket_num, tot_memory_in_bytes>::operator new(size_t sz)
+void* ElasticSketch::operator new(size_t sz)
 {
     constexpr uint32_t alignment = 64;
     size_t alloc_size = (2 * alignment + sz) / alignment * alignment;
@@ -182,8 +171,7 @@ void* ElasticSketch<bucket_num, tot_memory_in_bytes>::operator new(size_t sz)
     return new_ptr;
 }
 
-template<int bucket_num, int tot_memory_in_bytes>
-void ElasticSketch<bucket_num, tot_memory_in_bytes>::operator delete(void *p)
+void ElasticSketch::operator delete(void *p)
 {
     ::operator delete(((void**)p)[-1]);
 }

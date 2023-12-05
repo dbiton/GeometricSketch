@@ -6,7 +6,7 @@
 
 #include "countmin.h"
 #include "CountSketch.h"
-
+#include "ElasticSketch.h"
 class Dictionary
 {
 public:
@@ -20,6 +20,24 @@ public:
     virtual void shrink() = 0;
     virtual int getSize() const = 0;
     virtual int getMemoryUsage() const = 0;
+};
+
+class ElasticDictionary: public Dictionary
+{
+    void* elastic_sketch;
+    const int bucket_num;
+    const int total_memory_in_bytes;
+public:
+    ElasticDictionary(int bucket_num, int total_memory_in_bytes);
+    ~ElasticDictionary();
+
+    void update(uint32_t key, int amount);
+    int query(uint32_t key);
+
+    void expand();
+    void shrink();
+    int getSize() const;
+    int getMemoryUsage() const;
 };
 
 class CountSketchDictionary : public Dictionary

@@ -1,28 +1,31 @@
 #include "LightPart.h"
 
-template<int init_mem_in_bytes>
-LightPart<init_mem_in_bytes>::LightPart()
+
+LightPart::LightPart(int init_mem_in_bytes):		
+    counter_num(init_mem_in_bytes),
+	counters((uint8_t*)malloc(counter_num * sizeof(uint8_t)))
 {
     this->clear();
     std::random_device rd;
     bobhash = new BOBHash32(rd() % MAX_PRIME32);
 }
 
-template<int init_mem_in_bytes>
-LightPart<init_mem_in_bytes>::~LightPart()
+
+LightPart::~LightPart()
 {
     delete bobhash;
+    delete counters;
 }
 
-template<int init_mem_in_bytes>
-void LightPart<init_mem_in_bytes>::clear()
+
+void LightPart::clear()
 {
     memset(counters, 0, counter_num);
     memset(mice_dist, 0, sizeof(int) * 256);
 }
 
-template<int init_mem_in_bytes>
-void LightPart<init_mem_in_bytes>::insert(uint8_t *key, int f)
+
+void LightPart::insert(uint8_t *key, int f)
 {
     uint32_t hash_val = (uint32_t)bobhash->run((const char*)key, KEY_LENGTH_4);
     uint32_t pos = hash_val % (uint32_t)counter_num;
@@ -38,8 +41,8 @@ void LightPart<init_mem_in_bytes>::insert(uint8_t *key, int f)
     mice_dist[new_val]++;
 }
 
-template<int init_mem_in_bytes>
-void LightPart<init_mem_in_bytes>::swap_insert(uint8_t *key, int f)
+
+void LightPart::swap_insert(uint8_t *key, int f)
 {
     uint32_t hash_val = (uint32_t)bobhash->run((const char*)key, KEY_LENGTH_4);
     uint32_t pos = hash_val % (uint32_t)counter_num;
@@ -57,8 +60,8 @@ void LightPart<init_mem_in_bytes>::swap_insert(uint8_t *key, int f)
     }
 }
 
-template<int init_mem_in_bytes>
-int LightPart<init_mem_in_bytes>::query(uint8_t *key) 
+
+int LightPart::query(uint8_t *key) 
 {
     uint32_t hash_val = (uint32_t)bobhash->run((const char*)key, KEY_LENGTH_4);
     uint32_t pos = hash_val % (uint32_t)counter_num;
@@ -66,8 +69,8 @@ int LightPart<init_mem_in_bytes>::query(uint8_t *key)
     return (int)counters[pos];
 }
 
-template<int init_mem_in_bytes>
-void LightPart<init_mem_in_bytes>::compress(int ratio, uint8_t *dst) 
+
+void LightPart::compress(int ratio, uint8_t *dst) 
 {
     int width = get_compress_width(ratio);
 
@@ -80,8 +83,8 @@ void LightPart<init_mem_in_bytes>::compress(int ratio, uint8_t *dst)
     }
 }
 
-template<int init_mem_in_bytes>
-int LightPart<init_mem_in_bytes>::query_compressed_part(uint8_t *key, uint8_t *compress_part, int compress_counter_num) 
+
+int LightPart::query_compressed_part(uint8_t *key, uint8_t *compress_part, int compress_counter_num) 
 {
     uint32_t hash_val = (uint32_t)bobhash->run((const char *)key, KEY_LENGTH_4);
     uint32_t pos = (hash_val % (uint32_t)counter_num) % compress_counter_num;
@@ -89,25 +92,25 @@ int LightPart<init_mem_in_bytes>::query_compressed_part(uint8_t *key, uint8_t *c
     return (int)compress_part[pos];
 }
 
-template<int init_mem_in_bytes>
-int LightPart<init_mem_in_bytes>::get_compress_width(int ratio)
+
+int LightPart::get_compress_width(int ratio)
 {
     return (counter_num / ratio);
 }
 
-template<int init_mem_in_bytes>
-int LightPart<init_mem_in_bytes>::get_compress_memory(int ratio){
+
+int LightPart::get_compress_memory(int ratio){
     return (uint32_t)(counter_num / ratio);
 }
 
-template<int init_mem_in_bytes>
-int LightPart<init_mem_in_bytes>::get_memory_usage()
+
+int LightPart::get_memory_usage()
 {
     return counter_num;
 }
 
-template<int init_mem_in_bytes>
-int LightPart<init_mem_in_bytes>::get_cardinality() 
+
+int LightPart::get_cardinality() 
 {
     int mice_card = 0;
     for (int i = 1; i < 256; i++)
@@ -117,8 +120,8 @@ int LightPart<init_mem_in_bytes>::get_cardinality()
     return counter_num * log(1 / rate);
 }
 
-template<int init_mem_in_bytes>
-void LightPart<init_mem_in_bytes>::get_entropy(int &tot, double &entr)
+
+void LightPart::get_entropy(int &tot, double &entr)
 {
     for (int i = 1; i < 256; i++) 
     {
@@ -127,8 +130,8 @@ void LightPart<init_mem_in_bytes>::get_entropy(int &tot, double &entr)
     }
 }
 
-template<int init_mem_in_bytes>
-void LightPart<init_mem_in_bytes>::get_distribution(vector<double> &dist) 
+
+void LightPart::get_distribution(vector<double> &dist) 
 {
     uint32_t tmp_counters[counter_num];
     for (int i = 0; i < counter_num; i++)

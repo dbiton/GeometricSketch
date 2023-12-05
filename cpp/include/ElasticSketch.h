@@ -5,17 +5,25 @@
 #include "LightPart.h"
 
 
-template<int bucket_num, int tot_memory_in_bytes>
 class ElasticSketch
 {
-    static constexpr int heavy_mem = bucket_num * COUNTER_PER_BUCKET * 8;
-    static constexpr int light_mem = tot_memory_in_bytes - heavy_mem;
+    const int heavy_mem;
+    const int light_mem;
+    int bucket_num;
 
-    HeavyPart<bucket_num> heavy_part;
-    LightPart<light_mem> light_part;
+    HeavyPart heavy_part;
+    LightPart light_part;
 
 public:
-    ElasticSketch(){}
+    ElasticSketch(int bucket_num, int tot_memory_in_bytes):
+        bucket_num(bucket_num),
+        heavy_mem(bucket_num * COUNTER_PER_BUCKET * 8),
+        light_mem(tot_memory_in_bytes - heavy_mem),
+        heavy_part(bucket_num),
+        light_part(light_mem)
+    {
+    }
+
     ~ElasticSketch(){}
     void clear();
 

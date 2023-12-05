@@ -1,17 +1,16 @@
 #include "EMFSD.h"
 #include "param.h"
 
-template<int init_mem_in_bytes>
 class LightPart
 {
-	static constexpr int counter_num = init_mem_in_bytes;
+	const int counter_num;
 	BOBHash32 *bobhash = NULL;
 
-	uint8_t counters[counter_num];
+	uint8_t* counters;
 	int mice_dist[256];
 	EMFSD *em_fsd_algo = NULL;
 public:
-	LightPart();
+	LightPart(int init_mem_in_bytes);
 	~LightPart();
 
 	void clear();

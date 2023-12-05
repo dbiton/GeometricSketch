@@ -1,12 +1,11 @@
 #include "param.h"
-#define USING_SIMD_ACCELERATION
 
-template<int bucket_num>
-class HeavyPart
+struct HeavyPart
 {
-    alignas(64) Bucket buckets[bucket_num];
+    Bucket* buckets;
+    int bucket_num;
 public:
-    HeavyPart();
+    HeavyPart(int bucket_num);
     ~HeavyPart();
 
     void clear();

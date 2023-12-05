@@ -6,23 +6,23 @@
 #include <smmintrin.h>
 #endif // USING_SIMD_ACCELERATION
 
-template<int bucket_num>
-HeavyPart<bucket_num>::HeavyPart()
+HeavyPart::HeavyPart(int bucket_num): 
+	bucket_num(bucket_num),
+	buckets((Bucket*)malloc(bucket_num * sizeof(Bucket)))
 {
     this->clear();
 }
 
-template<int bucket_num>
-HeavyPart<bucket_num>::~HeavyPart(){}
+HeavyPart::~HeavyPart(){
+	delete buckets;
+}
 
-template<int bucket_num>
-void HeavyPart<bucket_num>::clear()
+void HeavyPart::clear()
 {
     memset(buckets, 0, sizeof(Bucket) * bucket_num);
 }
 
-template<int bucket_num>
-int HeavyPart<bucket_num>::insert(uint8_t *key, uint8_t *swap_key, uint32_t &swap_val, uint32_t f)
+int HeavyPart::insert(uint8_t *key, uint8_t *swap_key, uint32_t &swap_val, uint32_t f)
 {
     uint32_t fp;
 	int pos = CalculateFP(key, fp);
@@ -132,8 +132,7 @@ int HeavyPart<bucket_num>::insert(uint8_t *key, uint8_t *swap_key, uint32_t &swa
     return 1;
 }
 
-template<int bucket_num>
-int HeavyPart<bucket_num>::quick_insert(uint8_t *key, uint32_t f)
+int HeavyPart::quick_insert(uint8_t *key, uint32_t f)
 {
     uint32_t fp;
 	int pos = CalculateFP(key, fp);
@@ -237,8 +236,7 @@ int HeavyPart<bucket_num>::quick_insert(uint8_t *key, uint32_t f)
     return 1;
 }
 
-template<int bucket_num>
-int HeavyPart<bucket_num>::query(uint8_t *key)
+int HeavyPart::query(uint8_t *key)
 {
     uint32_t fp;
     int pos = CalculateFP(key, fp);
@@ -269,20 +267,17 @@ int HeavyPart<bucket_num>::query(uint8_t *key)
     return 0;
 }
 
-template<int bucket_num>
-int HeavyPart<bucket_num>::get_memory_usage()
+int HeavyPart::get_memory_usage()
 {
     return bucket_num * sizeof(Bucket);
 }
 
-template<int bucket_num>
-int HeavyPart<bucket_num>::get_bucket_num()
+int HeavyPart::get_bucket_num()
 {
     return bucket_num;
 }
 
-template<int bucket_num>
-int HeavyPart<bucket_num>::CalculateFP(uint8_t *key, uint32_t &fp)
+int HeavyPart::CalculateFP(uint8_t *key, uint32_t &fp)
 {
     fp = *((uint32_t*)key);
     return CalculateBucketPos(fp) % bucket_num;
