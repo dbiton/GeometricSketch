@@ -92,7 +92,9 @@ void CountSketchDictionary::update(uint32_t key, int amount)
     {
         throw std::runtime_error("CountSketchDictionary::update - amount must be 1.");
     }
-    count_sketch.addInt(key);
+    for (int i=0; i<amount; i++){
+        count_sketch.addInt(key);
+    }
 }
 int CountSketchDictionary::query(uint32_t key)
 {

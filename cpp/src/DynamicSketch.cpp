@@ -4,7 +4,7 @@
 
 int bucket_count = 5;
 
-DynamicSketch::DynamicSketch(int width, int depth, int _seed) : Dictionary(), seed(_seed)
+DynamicSketch::DynamicSketch(int width, int depth, int _seed) : Dictionary(), seed(_seed), width(width), depth(depth)
 {
 	Node *node = new Node(width, depth, seed, 0, UINT32_MAX);
 	nodes_vector.push_back(node);
@@ -28,7 +28,9 @@ void DynamicSketch::update(uint32_t item, int diff)
 
 	assert(node && "DynamicSketch::update - node in range wasn't found");
 	node->updateMedianSinceLastClear(item, diff);
-	CM_Update(node->sketch, item, diff);
+	// for now, only support a single increment
+	assert(diff == 1);
+	node->sketch.addInt(item);
 }
 
 int DynamicSketch::query(uint32_t item)
@@ -37,7 +39,7 @@ int DynamicSketch::query(uint32_t item)
 	for (int i = firstAt(item); i >= 0; i = nextAt(i, item))
 	{
 		auto &sketch = nodes_vector[i]->sketch;
-		sum += CM_PointEst(sketch, item);
+		sum += sketch.getIntFrequency(item);
 	}
 	return sum;
 }
@@ -63,7 +65,7 @@ void DynamicSketch::expand()
 		}
 	}
 	auto range_child = node_max->getRangeWithHalfOfUpdates();
-	Node *node_child = new DynamicSketch::Node(node_max->sketch->width, node_max->sketch->depth, seed, range_child.first, range_child.second);
+	Node *node_child = new DynamicSketch::Node(width, depth, seed, range_child.first, range_child.second);
 
 	// sorted insertion into nodes_vector
 
@@ -118,7 +120,7 @@ void DynamicSketch::shrink()
 	if (node_child_min && node_parent_min)
 	{
 		nodes_vector.erase(nodes_vector.begin() + node_child_index);
-		CM_Merge(node_parent_min->sketch, node_child_min->sketch);
+		node_parent_min->sketch.merge(node_child_min->sketch);
 		node_parent_min->num_events += node_child_min->num_events;
 		delete node_child_min;
 	}
@@ -132,7 +134,7 @@ int DynamicSketch::getSize() const
 
 int DynamicSketch::getMemoryUsage() const
 {
-	auto sketch_size = CM_Size(nodes_vector[0]->sketch);
+	auto sketch_size = 0; // CM_Size(nodes_vector[0]->sketch);
 	return sizeof(DynamicSketch) + getSize() * (sizeof(DynamicSketch::Node) + sketch_size);
 }
 
@@ -157,32 +159,35 @@ int DynamicSketch::nextAt(int sketch_index, uint32_t key)
 		auto node = nodes_vector[sketch_index];
 		if (node->min_key <= key)
 		{
-			if (node->max_key >= key) {
+			if (node->max_key >= key)
+			{
 				return sketch_index;
 			}
 		}
-		else {
+		else
+		{
 			return -1;
 		}
 	}
 	return -1;
 }
 
-DynamicSketch::Node::Node(int width, int depth, int seed, uint32_t _min_key, uint32_t _max_key) : sketch(nullptr),
+DynamicSketch::Node::Node(int width, int depth, int seed, uint32_t _min_key, uint32_t _max_key) : sketch(CountSketch((unsigned)width, (unsigned)depth, seed)),
 																								  num_events(0),
 																								  min_key(_min_key),
 																								  max_key(_max_key),
 																								  buckets(bucket_count, 0)
 {
-	sketch = CM_Init(width, depth, seed);
 }
 
-bool DynamicSketch::Node::compareMinKey(Node* n0, Node* n1)
+bool DynamicSketch::Node::compareMinKey(Node *n0, Node *n1)
 {
-	if (n0->min_key == n1->min_key) {
+	if (n0->min_key == n1->min_key)
+	{
 		return n0->max_key < n1->max_key;
 	}
-	else {
+	else
+	{
 		return n0->min_key < n1->min_key;
 	}
 }
@@ -194,9 +199,9 @@ void DynamicSketch::Node::clearBuckets()
 
 void DynamicSketch::Node::updateMedianSinceLastClear(uint32_t key, int amount)
 {
-	num_events+=amount;
+	num_events += amount;
 	uint32_t bucket_width = (max_key - min_key) / bucket_count;
-	uint32_t bucket_index = std::min(((key - min_key)/bucket_width), (uint32_t)bucket_count - 1U);
+	uint32_t bucket_index = std::min(((key - min_key) / bucket_width), (uint32_t)bucket_count - 1U);
 	buckets[(int)bucket_index] += amount;
 }
 
@@ -210,8 +215,9 @@ int DynamicSketch::Node::updatesSinceLastClear() const
 	return n;
 }
 
-template <typename T> 
-T length(std::pair<T, T> pair) {
+template <typename T>
+T length(std::pair<T, T> pair)
+{
 	return pair.second - pair.first;
 }
 
@@ -230,21 +236,23 @@ std::pair<uint32_t, uint32_t> DynamicSketch::Node::getRangeWithHalfOfUpdates() c
 	int double_delta_closest = INT_MAX;
 	int double_delta_closest_abs = INT_MAX;
 
-	for (int i = 0; i < bucket_count; i++) {
+	for (int i = 0; i < bucket_count; i++)
+	{
 		int range_updates_current = 0;
-		for (int j = i+1; j < bucket_count+1; j++)
+		for (int j = i + 1; j < bucket_count + 1; j++)
 		{
 			auto range_current = make_pair(min_key + i * bucket_width, min_key + j * bucket_width);
-			if (length(range_current) < min_range_size) {
+			if (length(range_current) < min_range_size)
+			{
 				continue;
 			}
-			range_updates_current += buckets[j-1];
+			range_updates_current += buckets[j - 1];
 			int double_delta_current = 2 * range_updates_current - updates_total;
 			int double_delta_current_abs = std::abs(double_delta_current);
 			if (
 				double_delta_current_abs < double_delta_closest_abs ||
-				double_delta_current_abs == double_delta_closest_abs && (length(range_current) < length(range_closest) || double_delta_current > double_delta_closest)
-			) {
+				double_delta_current_abs == double_delta_closest_abs && (length(range_current) < length(range_closest) || double_delta_current > double_delta_closest))
+			{
 				double_delta_closest = double_delta_current;
 				double_delta_closest_abs = std::abs(double_delta_closest);
 				range_closest = range_current;
@@ -254,32 +262,39 @@ std::pair<uint32_t, uint32_t> DynamicSketch::Node::getRangeWithHalfOfUpdates() c
 	return range_closest;
 }
 
-void DynamicSketch::clearAllBuckets(){
-	for (const auto& node : nodes_vector){
+void DynamicSketch::clearAllBuckets()
+{
+	for (const auto &node : nodes_vector)
+	{
 		node->clearBuckets();
 	}
 }
 
-void DynamicSketch::printInfo(int packet_index) const {
-    std::cout << "{\"index\":" << packet_index << ",\"loads\":[";
-	for (int j = 0; j < nodes_vector.size(); j++) {
+void DynamicSketch::printInfo(int packet_index) const
+{
+	std::cout << "{\"index\":" << packet_index << ",\"loads\":[";
+	for (int j = 0; j < nodes_vector.size(); j++)
+	{
 		auto node = nodes_vector[j];
 		std::cout << "{";
 		std::cout << "\"min_key\":" << node->min_key << ",\"max_key\":" << node->max_key << ",\"updates_since_last_clear\":" << node->updatesSinceLastClear();
 		std::cout << ",\"num_events\":" << node->num_events << ",\"buckets\":[" << std::endl;
 		uint32_t bucket_width = (node->max_key - node->min_key) / bucket_count;
-		for (int i = 0; i < node->buckets.size(); i++) {
+		for (int i = 0; i < node->buckets.size(); i++)
+		{
 			uint32_t min_key = node->min_key + i * bucket_width;
 			uint32_t max_key = node->min_key + (i + 1) * bucket_width;
 			std::cout << "	{\"min_key\":" << min_key << ",\"max_key\":" << max_key << ",\"counter\":" << node->buckets[i] << "}" << std::endl;
-            if (i < node->buckets.size()-1){
-                std::cout << ",";
-            }
+			if (i < node->buckets.size() - 1)
+			{
+				std::cout << ",";
+			}
 		}
-        std::cout << "]}";
-        if (j < nodes_vector.size()-1){
-            std::cout << ",";
-        }
+		std::cout << "]}";
+		if (j < nodes_vector.size() - 1)
+		{
+			std::cout << ",";
+		}
 	}
-    std::cout << "]}," << std::endl;
+	std::cout << "]}," << std::endl;
 }

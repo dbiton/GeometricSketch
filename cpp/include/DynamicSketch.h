@@ -4,13 +4,13 @@
 #include <map>
 #include <vector>
 
-#include "countmin.h"
+#include "CountSketch.h"
 #include "Dictionary.h"
 
 class DynamicSketch : public Dictionary
 {
 	struct Node {
-		CM_type* sketch;
+        CountSketch sketch;
 
 		std::vector<int> buckets;
 
@@ -28,7 +28,8 @@ class DynamicSketch : public Dictionary
 		static bool compareMinKey(Node* n0, Node* n1);
 	};
 	std::vector<Node*> nodes_vector;
-
+	int width;
+	int depth;
 	int seed;
 public:
 

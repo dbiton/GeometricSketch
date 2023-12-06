@@ -44,7 +44,7 @@ public:
 	 * Constuctor
 	 * params are epsilon (between 0.01 and 1) and gamma (between 0.1 and 1)
 	 */
-	CountSketch(double epsilon, double gamma)
+    CountSketch(double epsilon, double gamma, int seed=0)
 	{
 		// calculate depth and width based on epsilon and gamma
 		d = ceil(log(4 / gamma));
@@ -52,7 +52,7 @@ public:
 		row_counters = std::vector<int>(d, 0);
 		// create Matrix
 		//srand(time(NULL)); // seed time to rand so we get some random numbers
-		srand(0); // use 0 seed so that we get the same seeds - allowing merge
+        srand(seed); // use 0 seed so that we get the same seeds - allowing merge
 		for (unsigned int i = 0; i < d; ++i) {
 			C.push_back(Matrice(w)); // create 'w' columns for each 'd' row
 			seeds.push_back(rand()); // add random number to first seed function
@@ -60,13 +60,13 @@ public:
 		}
 	}
 
-	CountSketch(unsigned int width, unsigned int depth) {
+    CountSketch(unsigned int width, unsigned int depth, int seed=0) {
 		// calculate depth and width based on epsilon and gamma
 		d = depth;
 		w = width;
 		row_counters = std::vector<int>(d, 0);
 		// create Matrix
-		srand(0); // use 0 seed so that we get the same seeds - allowing merge
+        srand(seed); // use 0 seed so that we get the same seeds - allowing merge
 		for (unsigned int i = 0; i < d; ++i) {
 			C.push_back(Matrice(w)); // create 'w' columns for each 'd' row
 			seeds.push_back(rand()); // add random number to first seed function
