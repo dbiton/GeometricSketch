@@ -4,13 +4,61 @@
 
 int bucket_count = 5;
 
-DynamicSketch::DynamicSketch(int width, int depth, int _seed) : Dictionary(), seed(_seed), width(width), depth(depth)
+DynamicSketch::DynamicSketch(int width, int depth, int _seed, int bucket_num) : 
+	Dictionary(), 
+	seed(_seed), 
+	width(width), 
+	depth(depth),
+	heavy_part(bucket_num)
 {
 	Node *node = new Node(width, depth, seed, 0, UINT32_MAX);
 	nodes_vector.push_back(node);
 }
 
-void DynamicSketch::update(uint32_t item, int diff)
+void DynamicSketch::update(uint32_t item, int f)
+{
+	uint8_t *key = (uint8_t*)&item;
+    uint8_t swap_key[KEY_LENGTH_4];
+    uint32_t swap_val = 0;
+    int result = heavy_part.insert(key, swap_key, swap_val, f);
+    switch(result)
+    {
+        case 0: return;
+        case 1:{
+			// highest bit of swap_val used to indicate if we should swap
+            if(HIGHEST_BIT_IS_1(swap_val))
+                saveInSketches((uint32_t)*swap_key, GetCounterVal(swap_val));
+            else{
+				int amount_swap_key = querySketches((uint32_t)*swap_key);
+				int amount_increase = amount_swap_key - swap_val;
+				// replace here if we make sketch hold something else (chars etc)
+				int max_sketches_value = INT_MAX;
+				if (amount_increase > 0 && amount_swap_key < max_sketches_value){
+					saveInSketches((uint32_t)*swap_key, amount_increase);
+				}
+			}
+			return;
+        }
+        case 2: saveInSketches(item, 1);  return;
+        default:
+            printf("error return value !\n");
+            exit(1);
+    }
+}
+
+int DynamicSketch::query(uint32_t item)
+{
+	uint8_t *key = (uint8_t*)&item;
+    uint32_t heavy_result = heavy_part.query(key);
+    if(heavy_result == 0 || HIGHEST_BIT_IS_1(heavy_result))
+    {
+        int light_result = querySketches(item);
+        return (int)GetCounterVal(heavy_result) + light_result;
+    }
+    return heavy_result;
+}
+
+void DynamicSketch::saveInSketches(uint32_t item, int diff)
 {
 	int num_events = INT_MAX;
 	Node *node = nullptr;
@@ -28,12 +76,15 @@ void DynamicSketch::update(uint32_t item, int diff)
 
 	assert(node && "DynamicSketch::update - node in range wasn't found");
 	node->updateMedianSinceLastClear(item, diff);
-	// for now, only support a single increment
-	assert(diff == 1);
-	node->sketch.addInt(item);
+
+    // replace this with something less stupid
+    assert(diff >= 0);
+    for (int i=0; i<diff; i++){
+        node->sketch.addInt(item);
+    }
 }
 
-int DynamicSketch::query(uint32_t item)
+int DynamicSketch::querySketches(uint32_t item)
 {
 	int sum = 0;
 	for (int i = firstAt(item); i >= 0; i = nextAt(i, item))

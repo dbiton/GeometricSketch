@@ -225,7 +225,7 @@ def plot_mae_dynamic_and_elastic(count_log):
     plt.grid()
     plt.plot(x_dynamic, y_dynamic, label="dynamic")
     plt.plot(x_elastic, y_elastic, label="elastic")
-    plt.plot(x_countmin, y_countmin, label="countmin")
+    #plt.plot(x_countmin, y_countmin, label="countmin")
     plt.plot(x_countsketch, y_countsketch, label="countsketch")
     plt.legend()
     plt.ylabel('MAE')
@@ -235,9 +235,9 @@ def plot_mae_dynamic_and_elastic(count_log):
     plt.show()
 
 if __name__ == "__main__":
-    plot_mae_dynamic_and_elastic(128)
+    #plot_mae_dynamic_and_elastic(128)
     #plot_mae_dynamic_and_countmin(3, 128)
-    #פlot_ip_distribution()
-    #plot_dynamic_sketches_loads(64)
-    #plot_dynamic_sketches_count(64)
-    #plot_operations_per_second(64)
+    #plot_ip_distribution()
+    plot_dynamic_sketches_loads(64)
+    plot_dynamic_sketches_count(64)
+    plot_operations_per_second(64)

@@ -4,6 +4,7 @@
 #include <map>
 #include <vector>
 
+#include "HeavyPart.h"
 #include "CountSketch.h"
 #include "Dictionary.h"
 
@@ -27,13 +28,14 @@ class DynamicSketch : public Dictionary
 
 		static bool compareMinKey(Node* n0, Node* n1);
 	};
+	HeavyPart heavy_part;
 	std::vector<Node*> nodes_vector;
 	int width;
 	int depth;
 	int seed;
 public:
 
-	DynamicSketch(int width, int depth, int seed);
+	DynamicSketch(int width, int depth, int seed, int bucket_num=0);
 
 	void update(uint32_t key, int amount);
 	int query(uint32_t item);
@@ -46,6 +48,8 @@ public:
 
     void printInfo(int index) const;
 private:
+	int querySketches(uint32_t key);
+	void saveInSketches(uint32_t key, int amount);
 	static bool nodeComp(Node* n0, Node* n1);
 	int firstAt(uint32_t item);
 	int nextAt(int sketch_index, uint32_t item);

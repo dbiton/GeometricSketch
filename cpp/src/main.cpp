@@ -87,7 +87,7 @@ Dictionary *createDictionary(std::string type)
 	}
 	else if (type == "dynamic")
 	{
-		return new DynamicSketch(CM_WIDTH, CM_DEPTH, SEED);
+		return new DynamicSketch(CM_WIDTH, CM_DEPTH, SEED, 2);
 	}
 	else if (type == "countmin")
 	{
@@ -99,7 +99,8 @@ Dictionary *createDictionary(std::string type)
 	}
 	else if (type == "elastic")
 	{
-        return new ElasticDictionary(1, CM_WIDTH * CM_DEPTH * sizeof(int));
+		int bucket_count = 2;
+        return new ElasticDictionary(bucket_count, bucket_count * COUNTER_PER_BUCKET * 8 + CM_WIDTH * CM_DEPTH * sizeof(int));
 	}
 	else
 	{
@@ -364,7 +365,7 @@ void proccess_input(int argc, const char* argv[])
 
 
 void manual_argument() {
-    std::string cmd = "--limit_file /home/dbiton/Desktop/Projects/DynamicSketch/pcaps/capture.txt 10000 --type elastic --repeat log_mean_absolute_error 78";
+    std::string cmd = "--limit_file /home/dbiton/Desktop/Projects/DynamicSketch/pcaps/capture.txt 100000 --type dynamic --width 28 --depth 3 --repeat log_mean_absolute_error 781";
     std::vector<const char*> args;
 	std::istringstream iss(cmd);
 

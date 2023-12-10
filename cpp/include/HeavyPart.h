@@ -1,3 +1,4 @@
+#pragma once
 #include "param.h"
 
 struct HeavyPart
