@@ -12,12 +12,15 @@
 typedef std::chrono::high_resolution_clock chrono_clock;
 typedef std::chrono::duration<double, std::milli> duration;
 
-constexpr float epsilon = 0.1;
-constexpr float delta = 0.1;
+constexpr float epsilon = 0.001;
+constexpr float delta = 0.001;
 constexpr int SEED = 0x1337C0D3;
 constexpr int NUM_PACKETS = 1024 * 1024 * 32;
+
 int CM_WIDTH = ceil(exp(1) / epsilon);
 int CM_DEPTH = ceil(log(1 / delta));
+int BUCKET_COUNT = 32;
+int MEMORY_USAGE=1024*1024*32; // 32MB
 
 duration duration_update = duration::zero();
 duration duration_expand = duration::zero();;
@@ -87,7 +90,7 @@ Dictionary *createDictionary(std::string type)
 	}
 	else if (type == "dynamic")
 	{
-		return new DynamicSketch(CM_WIDTH, CM_DEPTH, SEED, 2);
+        return new DynamicSketch(CM_WIDTH, CM_DEPTH, SEED, BUCKET_COUNT);
 	}
 	else if (type == "countmin")
 	{
@@ -99,8 +102,7 @@ Dictionary *createDictionary(std::string type)
 	}
 	else if (type == "elastic")
 	{
-		int bucket_count = 2;
-        return new ElasticDictionary(bucket_count, bucket_count * COUNTER_PER_BUCKET * 8 + CM_WIDTH * CM_DEPTH * sizeof(int));
+        return new ElasticDictionary(BUCKET_COUNT, BUCKET_COUNT * COUNTER_PER_BUCKET * 8 + CM_WIDTH * CM_DEPTH, SEED);
 	}
 	else
 	{
@@ -328,6 +330,10 @@ void proccess_input(int argc, const char* argv[])
 			}
 			type = argv[++i];
 		}
+        else if (arg == "--buckets")
+        {
+            BUCKET_COUNT = stoi(argv[++i]);
+        }
 		else if (arg == "--width")
 		{
 			CM_WIDTH = stoi(argv[++i]);
@@ -365,7 +371,7 @@ void proccess_input(int argc, const char* argv[])
 
 
 void manual_argument() {
-    std::string cmd = "--limit_file /home/dbiton/Desktop/Projects/DynamicSketch/pcaps/capture.txt 100000 --type dynamic --width 28 --depth 3 --repeat log_mean_absolute_error 781";
+    std::string cmd = "--limit_file /home/dbiton/Desktop/Projects/DynamicSketch/pcaps/capture.txt 1000000 --type dynamic --buckets 32 --repeat log_dynamic_sketches_loads 15625 --repeat expand 15625";
     std::vector<const char*> args;
 	std::istringstream iss(cmd);
 

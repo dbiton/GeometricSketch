@@ -31,6 +31,11 @@ void UnorderedMapDictionary::shrink()
     throw std::runtime_error("UnorderedMapDictionary::shrink - should not be used.");
 }
 
+void ElasticDictionary::shrink()
+{
+    shrink(2);
+}
+
 int UnorderedMapDictionary::getSize() const
 {
     throw std::runtime_error("UnorderedMapDictionary::getSize - should not be used.");
@@ -157,11 +162,11 @@ int CountMinDictionary::getMemoryUsage() const
     return CM_Size(this->count_min);
 }
 
-ElasticDictionary::ElasticDictionary(const int _bucket_num, const int _total_memory_in_bytes) : bucket_num(_bucket_num),
+ElasticDictionary::ElasticDictionary(const int _bucket_num, const int _total_memory_in_bytes, int seed) : bucket_num(_bucket_num),
                                                                                     total_memory_in_bytes(_total_memory_in_bytes),
                                                                                     elastic_sketch(nullptr)
 {
-    elastic_sketch = new ElasticSketch(bucket_num, total_memory_in_bytes);
+    elastic_sketch = new ElasticSketch(bucket_num, total_memory_in_bytes, seed);
 }
 
 ElasticDictionary::~ElasticDictionary() {}
@@ -181,10 +186,12 @@ void ElasticDictionary::expand()
 {
     throw std::runtime_error("ElasticDictionary::expand - should not be used.");
 }
-void ElasticDictionary::shrink()
+void ElasticDictionary::shrink(int ratio)
 {
-    throw std::runtime_error("ElasticDictionary::shrink - should not be used.");
+    auto p = static_cast<ElasticSketch*>(elastic_sketch);
+    p->compress_self(ratio);
 }
+
 int ElasticDictionary::getSize() const
 {
     throw std::runtime_error("ElasticDictionary::getSize - should not be used.");

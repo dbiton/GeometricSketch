@@ -5,13 +5,13 @@
 #include <vector>
 
 #include "HeavyPart.h"
-#include "CountSketch.h"
+#include "LightPart.h"
 #include "Dictionary.h"
 
 class DynamicSketch : public Dictionary
 {
 	struct Node {
-        CountSketch sketch;
+        LightPart sketch;
 
 		std::vector<int> buckets;
 
@@ -35,7 +35,7 @@ class DynamicSketch : public Dictionary
 	int seed;
 public:
 
-	DynamicSketch(int width, int depth, int seed, int bucket_num=0);
+	DynamicSketch(int width, int depth, int seed, int bucket_num);
 
 	void update(uint32_t key, int amount);
 	int query(uint32_t item);

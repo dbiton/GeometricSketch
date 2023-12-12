@@ -28,7 +28,7 @@ class ElasticDictionary: public Dictionary
     const int bucket_num;
     const int total_memory_in_bytes;
 public:
-    ElasticDictionary(int bucket_num, int total_memory_in_bytes);
+    ElasticDictionary(int bucket_num, int total_memory_in_bytes, int seed);
     ~ElasticDictionary();
 
     void update(uint32_t key, int amount);
@@ -36,6 +36,7 @@ public:
 
     void expand();
     void shrink();
+    void shrink(int ratio);
     int getSize() const;
     int getMemoryUsage() const;
 };

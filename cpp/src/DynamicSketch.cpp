@@ -1,8 +1,10 @@
 #include "DynamicSketch.h"
+#include "extract_subrange.h"
 
 #include <algorithm>
 
-int bucket_count = 5;
+
+int bucket_count = 8;
 
 DynamicSketch::DynamicSketch(int width, int depth, int _seed, int bucket_num) : 
 	Dictionary(), 
@@ -73,46 +75,40 @@ void DynamicSketch::saveInSketches(uint32_t item, int diff)
 			node = node_curr;
 		}
 	}
-
 	assert(node && "DynamicSketch::update - node in range wasn't found");
 	node->updateMedianSinceLastClear(item, diff);
-
-    // replace this with something less stupid
-    assert(diff >= 0);
-    for (int i=0; i<diff; i++){
-        node->sketch.addInt(item);
-    }
+	uint8_t* item_key = (uint8_t*)&item;
+	node->sketch.insert(item_key, diff);
 }
 
 int DynamicSketch::querySketches(uint32_t item)
 {
+	uint8_t* item_key = (uint8_t*)&item;
 	int sum = 0;
 	for (int i = firstAt(item); i >= 0; i = nextAt(i, item))
 	{
 		auto &sketch = nodes_vector[i]->sketch;
-		sum += sketch.getIntFrequency(item);
+		sum += sketch.query(item_key);
 	}
 	return sum;
 }
 
 void DynamicSketch::expand()
 {
-	Node *node_max;
-	node_max = nodes_vector[0];
-	std::pair<uint32_t, uint32_t> range_max;
-	range_max.first = nodes_vector[0]->min_key;
-	range_max.second = nodes_vector[0]->max_key;
+    Node *node_max = nodes_vector[0];
+    int max_amount = node_max->num_events;
 
-	int index_max;
-	for (int i = 1; i < nodes_vector.size(); i++)
+    //std::cout << "expand" << std::endl;
+    for (int i = 1; i < nodes_vector.size(); i++)
 	{
-		Node *node = nodes_vector[i];
-		if (node->updatesSinceLastClear() > node_max->updatesSinceLastClear())
+        Node *node = nodes_vector[i];
+        int amount = node->num_events;
+        //std::cout << node->min_key << "," << node->max_key << std::endl;
+        //std::cout << "best:" << max_amount << " current:" << amount << std::endl;
+        if (amount > max_amount)
 		{
+            max_amount = amount;
 			node_max = node;
-			range_max.first = node->min_key;
-			range_max.second = node->max_key;
-			index_max = i;
 		}
 	}
 	auto range_child = node_max->getRangeWithHalfOfUpdates();
@@ -122,8 +118,8 @@ void DynamicSketch::expand()
 
 	auto it = std::lower_bound(nodes_vector.begin(), nodes_vector.end(), node_child, Node::compareMinKey);
 	nodes_vector.insert(it, node_child);
-
-	clearAllBuckets();
+    node_max->clearBuckets();
+    //clearAllBuckets();
 }
 
 void DynamicSketch::shrink()
@@ -175,7 +171,7 @@ void DynamicSketch::shrink()
 		node_parent_min->num_events += node_child_min->num_events;
 		delete node_child_min;
 	}
-	clearAllBuckets();
+    //clearAllBuckets();
 }
 
 int DynamicSketch::getSize() const
@@ -208,22 +204,22 @@ int DynamicSketch::nextAt(int sketch_index, uint32_t key)
 	while (++sketch_index < nodes_vector.size())
 	{
 		auto node = nodes_vector[sketch_index];
-		if (node->min_key <= key)
+        if (node->min_key <= key)
 		{
-			if (node->max_key >= key)
-			{
-				return sketch_index;
-			}
+            if (node->max_key >= key)
+            {
+                return sketch_index;
+            }
 		}
-		else
-		{
-			return -1;
-		}
+        else
+        {
+            return -1;
+        }
 	}
 	return -1;
 }
 
-DynamicSketch::Node::Node(int width, int depth, int seed, uint32_t _min_key, uint32_t _max_key) : sketch(CountSketch((unsigned)width, (unsigned)depth, seed)),
+DynamicSketch::Node::Node(int width, int depth, int seed, uint32_t _min_key, uint32_t _max_key) : sketch(LightPart(width*depth, seed)),
 																								  num_events(0),
 																								  min_key(_min_key),
 																								  max_key(_max_key),
@@ -251,9 +247,9 @@ void DynamicSketch::Node::clearBuckets()
 void DynamicSketch::Node::updateMedianSinceLastClear(uint32_t key, int amount)
 {
 	num_events += amount;
-	uint32_t bucket_width = (max_key - min_key) / bucket_count;
-	uint32_t bucket_index = std::min(((key - min_key) / bucket_width), (uint32_t)bucket_count - 1U);
-	buckets[(int)bucket_index] += amount;
+    double bucket_width = (double)(max_key - min_key) / (double)bucket_count;
+    int bucket_index = (int)std::floor((double)(key - min_key) / (double)bucket_width);
+    buckets[bucket_index] += amount;
 }
 
 int DynamicSketch::Node::updatesSinceLastClear() const
@@ -275,42 +271,15 @@ T length(std::pair<T, T> pair)
 // smallest subrange containing closest to half the number of total events, while being > 0
 std::pair<uint32_t, uint32_t> DynamicSketch::Node::getRangeWithHalfOfUpdates() const
 {
-	int min_range_size = bucket_count;
-
-	int updates_total = updatesSinceLastClear();
-	if (updates_total == 0)
-	{
-		return std::make_pair(min_key, (min_key + max_key) / 2);
-	}
-	uint32_t bucket_width = (max_key - min_key) / bucket_count;
-	auto range_closest = std::make_pair(min_key, (min_key + max_key) / 2);
-	int double_delta_closest = INT_MAX;
-	int double_delta_closest_abs = INT_MAX;
-
-	for (int i = 0; i < bucket_count; i++)
-	{
-		int range_updates_current = 0;
-		for (int j = i + 1; j < bucket_count + 1; j++)
-		{
-			auto range_current = make_pair(min_key + i * bucket_width, min_key + j * bucket_width);
-			if (length(range_current) < min_range_size)
-			{
-				continue;
-			}
-			range_updates_current += buckets[j - 1];
-			int double_delta_current = 2 * range_updates_current - updates_total;
-			int double_delta_current_abs = std::abs(double_delta_current);
-			if (
-				double_delta_current_abs < double_delta_closest_abs ||
-				double_delta_current_abs == double_delta_closest_abs && (length(range_current) < length(range_closest) || double_delta_current > double_delta_closest))
-			{
-				double_delta_closest = double_delta_current;
-				double_delta_closest_abs = std::abs(double_delta_closest);
-				range_closest = range_current;
-			}
-		}
-	}
-	return range_closest;
+    int min_range = bucket_count * bucket_count;
+    if (max_key - min_key < min_range){
+        return std::make_pair(min_key, max_key);
+    }
+    auto bucket_range = extract_subrange(buckets);
+    double bucket_width = (double)(max_key - min_key) / (double)bucket_count;
+    uint32_t range_begin = bucket_range.first*bucket_width+min_key;
+    uint32_t range_end = bucket_range.second*bucket_width+min_key;
+    return std::make_pair(range_begin, range_end);
 }
 
 void DynamicSketch::clearAllBuckets()

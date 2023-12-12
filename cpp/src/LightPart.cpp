@@ -1,13 +1,12 @@
 #include "LightPart.h"
 
 
-LightPart::LightPart(int init_mem_in_bytes):		
+LightPart::LightPart(int init_mem_in_bytes, int seed):
     counter_num(init_mem_in_bytes),
 	counters((uint8_t*)malloc(counter_num * sizeof(uint8_t)))
 {
     this->clear();
-    std::random_device rd;
-    bobhash = new BOBHash32(rd() % MAX_PRIME32);
+    bobhash = new BOBHash32(seed % MAX_PRIME32);
 }
 
 
@@ -24,6 +23,17 @@ void LightPart::clear()
     memset(mice_dist, 0, sizeof(int) * 256);
 }
 
+void LightPart::merge(const LightPart& o){
+    if (counter_num != o.counter_num){
+        throw std::runtime_error("mismatching light parts!");
+    }
+    for (int i=0; i<counter_num; i++){
+        int old_val = (int)counters[i];
+        int new_val = old_val + (int)o.counters[i];
+        new_val = new_val < 255 ? new_val : 255;
+        counters[i] = (uint8_t)new_val;
+    }
+}
 
 void LightPart::insert(uint8_t *key, int f)
 {
@@ -69,6 +79,15 @@ int LightPart::query(uint8_t *key)
     return (int)counters[pos];
 }
 
+void LightPart::compress_self(int ratio)
+{
+    int width = get_compress_width(ratio);
+    auto new_counters = ((uint8_t*)malloc(width * sizeof(uint8_t)));
+    compress(ratio, new_counters);
+    delete counters;
+    counters = new_counters;
+    counter_num = width;
+}
 
 void LightPart::compress(int ratio, uint8_t *dst) 
 {
