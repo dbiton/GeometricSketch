@@ -20,4 +20,5 @@ add_executable(DynamicSketch
     src/prng.cc
     src/rand48.cc
     src/Dictionary.cpp
+    src/LinkedCellSketch.cpp
 )

@@ -12,30 +12,22 @@ class DynamicSketch : public Dictionary
 {
 	struct Node {
         LightPart sketch;
-
-		std::vector<int> buckets;
-
+		std::vector<bool> bitmask;
 		int num_events;
 
-		uint32_t min_key;
-		uint32_t max_key;
+		Node(int width, int depth, int seed, const std::vector<bool>& bitmask);
 
-		Node(int width, int depth, int seed, uint32_t min_key, uint32_t max_key);
-		void clearBuckets();
-		void updateMedianSinceLastClear(uint32_t key, int amount); 
-		std::pair<uint32_t, uint32_t> getRangeWithHalfOfUpdates() const;
-		int updatesSinceLastClear() const;
-
-		static bool compareMinKey(Node* n0, Node* n1);
+		bool keyInRange(uint32_t key);
+		void update(uint32_t key, int amount);
 	};
 	HeavyPart heavy_part;
-	std::vector<Node*> nodes_vector;
+	std::vector<Node> nodes_vector;
+	std::vector<uint32_t> distribution;
 	int width;
 	int depth;
 	int seed;
 public:
-
-	DynamicSketch(int width, int depth, int seed, int bucket_num);
+    DynamicSketch(int width, int depth, int seed, int heavy_part_bucket_num, int dist_buckets_count);
 
 	void update(uint32_t key, int amount);
 	int query(uint32_t item);
@@ -48,6 +40,8 @@ public:
 
     void printInfo(int index) const;
 private:
+	void getBitmaskForNewSketch(std::vector<bool>& bitmask);
+	int distributionBucketIndex(uint32_t key);
 	int querySketches(uint32_t key);
 	void saveInSketches(uint32_t key, int amount);
 	static bool nodeComp(Node* n0, Node* n1);

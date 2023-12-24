@@ -14,14 +14,17 @@ COUNT_PACKETS = min(1000000, COUNT_PACKETS_MAX)
 
 
 def execute_command(arguments: list):
-    command = [filepath_executable, "--limit_file", filepath_packets, str(COUNT_PACKETS)] + arguments
+    command = [filepath_executable, "--limit_file",
+               filepath_packets, str(COUNT_PACKETS)] + arguments
     print("executing:", ' '.join(command))
-    result = sp.run(command, stdout=sp.PIPE, stderr=sp.PIPE, universal_newlines=True)
+    result = sp.run(command, stdout=sp.PIPE,
+                    stderr=sp.PIPE, universal_newlines=True)
     if result.returncode != 0:
-        raise ValueError(f"command: {' '.join(command)} caused error: {result.stderr}")
+        raise ValueError(
+            f"command: {' '.join(command)} caused error: {result.stderr}")
     raw_output = result.stdout.replace("\n", "").replace("\t", "")[:-2] + ']'
     output_dict = json.loads(raw_output)
-    output_df = pd.DataFrame(output_dict)#.groupby('index').mean().fillna(method='ffill')
+    output_df = pd.DataFrame(output_dict).groupby('index').mean().ffill()
     return output_df
 
 
@@ -43,12 +46,16 @@ def plot_ip_distribution():
 
 
 def plot_mae_countmin_and_countsketch():
-    result_countmin = execute_command(["--type", "countmin", "--repeat", "log_mean_absolute_error", "1000"])
-    result_countsketch = execute_command(["--type", "countsketch", "--repeat", "log_mean_absolute_error", "1000"])
+    result_countmin = execute_command(
+        ["--type", "countmin", "--repeat", "log_mean_absolute_error", "1000"])
+    result_countsketch = execute_command(
+        ["--type", "countsketch", "--repeat", "log_mean_absolute_error", "1000"])
     x_countmin = np.array(result_countmin.index.to_numpy())
-    y_countmin = np.array(result_countmin['log_mean_absolute_error'].to_numpy())
+    y_countmin = np.array(
+        result_countmin['log_mean_absolute_error'].to_numpy())
     x_countsketch = np.array(result_countsketch.index.to_numpy())
-    y_countsketch = np.array(result_countsketch['log_mean_absolute_error'].to_numpy())
+    y_countsketch = np.array(
+        result_countsketch['log_mean_absolute_error'].to_numpy())
     plt.plot(x_countmin, y_countmin, label="countmin")
     plt.plot(x_countsketch, y_countsketch, label="countsketch")
     plt.ylabel('MAE')
@@ -56,6 +63,126 @@ def plot_mae_countmin_and_countsketch():
     plt.title('packets distribution')
     plt.legend()
     plt.grid()
+    plt.show()
+
+
+def plot_mae_dynamic_expand(count_sketch: int, count_log: int):
+    packets_per_modify_size = COUNT_PACKETS // count_sketch
+    packets_per_log = COUNT_PACKETS // count_log
+    width = 1000
+    depth = 5
+
+    result_dynamic = execute_command([
+        "--type", "cellsketch",
+        "--width", str(width),
+        "--depth", str(depth),
+        "--repeat", "expand", str(packets_per_modify_size),
+        "--repeat", "log_mean_absolute_error", str(packets_per_log)])
+
+    result_count_min = execute_command([
+        "--type", "countmin", 
+        "--repeat", "log_mean_absolute_error", str(packets_per_log),
+        "--width", str(width), 
+        "--depth", str(depth)])
+    result_count_max = execute_command([
+        "--type", "countmin", 
+        "--repeat", "log_mean_absolute_error", str(packets_per_log),
+        "--width", str(width*count_sketch), 
+        "--depth", str(depth)])
+
+    x_dynamic = np.array(result_dynamic.index.to_numpy())
+    y_dynamic = np.array(result_dynamic['log_mean_absolute_error'].to_numpy())
+    x_count_min = np.array(result_count_min.index.to_numpy())
+    y_count_min = np.array(result_count_min['log_mean_absolute_error'].to_numpy())
+    x_count_max = np.array(result_count_max.index.to_numpy())
+    y_count_max = np.array(result_count_max['log_mean_absolute_error'].to_numpy())
+    plt.figure(num="mae_dynamic_countmin")
+    plt.plot(x_dynamic, y_dynamic, label="dynamic")
+    plt.plot(x_count_min, y_count_min, label="min")
+    plt.plot(x_count_max, y_count_max, label="max")
+    plt.figure(num="mae_dynamic_countmin_derivative")
+    plt.plot(x_dynamic, np.gradient(y_dynamic, packets_per_log), label=f"dynamic")
+    plt.plot(x_count_min, np.gradient(y_count_min, packets_per_log), label=f"min")
+    plt.plot(x_count_max, np.gradient(y_count_max, packets_per_log), label=f"max")
+
+    plt.figure(num="mae_dynamic_countmin")
+    plt.legend()
+    plt.grid()
+    plt.ylabel('MAE')
+    plt.xlabel('packets')
+    plt.savefig('mae_dynamic_countmin.png')
+
+    plt.figure(num="mae_dynamic_countmin_derivative")
+    plt.legend()
+    plt.grid()
+    plt.ylabel("MAE'")
+    plt.xlabel('packets')
+    plt.savefig('mae_dynamic_countmin_derivative.png')
+
+    plt.show()
+
+
+def plot_mae_dynamic_and_linked_cell(count_sketch: int, count_log: int):
+    packets_per_modify_size = COUNT_PACKETS // count_sketch
+    packets_per_log = COUNT_PACKETS // count_log
+
+    for i in range(count_sketch):
+        result_countmin = execute_command([
+            "--type", "countmin",
+            "--width", str(250 * (i + 1)),
+            "--depth", "4",
+            "--repeat", "log_mean_absolute_error", str(packets_per_log),
+        ])
+        x_countmin = np.array(result_countmin.index.to_numpy())
+        y_countmin = np.array(
+            result_countmin['log_mean_absolute_error'].to_numpy())
+        plt.figure(num="mae_dynamic_countmin")
+        plt.plot(x_countmin, y_countmin, label=f"countmin {i + 1}")
+        plt.figure(num="mae_dynamic_countmin_derivative")
+        plt.plot(x_countmin, np.gradient(
+            y_countmin, packets_per_log), label=f"countmin {i + 1}")
+
+    result_dynamic = execute_command([
+        "--type", "cellsketch",
+        "--width", "250",
+        "--depth", "4",
+        "--repeat", "expand", str(packets_per_modify_size),
+        "--repeat", "log_mean_absolute_error", str(packets_per_log)])
+
+    x_dynamic = np.array(result_dynamic.index.to_numpy())
+    y_dynamic = np.array(result_dynamic['log_mean_absolute_error'].to_numpy())
+    plt.figure(num="mae_dynamic_countmin")
+    plt.plot(x_dynamic, y_dynamic, label="dynamic")
+    plt.figure(num="mae_dynamic_countmin_derivative")
+    plt.plot(x_dynamic, np.gradient(
+        y_dynamic, packets_per_log), label=f"dynamic")
+
+    for xc in range(packets_per_modify_size, packets_per_modify_size * count_sketch, packets_per_modify_size):
+        plt.figure(num="mae_dynamic_countmin")
+        plt.axvline(x=xc, color='r', linestyle='dashed')
+        plt.figure(num="mae_dynamic_countmin_derivative")
+        plt.axvline(x=xc, color='r', linestyle='dashed')
+
+    for xc in range(packets_per_modify_size * count_sketch, COUNT_PACKETS, packets_per_modify_size):
+        plt.figure(num="mae_dynamic_countmin")
+        plt.axvline(x=xc, color='g', linestyle='dashed')
+        plt.figure(num="mae_dynamic_countmin_derivative")
+        plt.axvline(x=xc, color='g', linestyle='dashed')
+
+    plt.figure(num="mae_dynamic_countmin")
+    plt.legend()
+    plt.grid()
+    plt.ylabel('MAE')
+    plt.xlabel('packets')
+    plt.savefig('mae_dynamic_countmin.png')
+
+    plt.figure(num="mae_dynamic_countmin_derivative")
+    plt.legend()
+    plt.grid()
+    plt.ylabel("MAE'")
+    plt.xlabel('packets')
+    plt.savefig('mae_dynamic_countmin_derivative.png')
+
     plt.show()
 
 
@@ -70,27 +197,30 @@ def plot_mae_dynamic_and_countmin(count_sketch: int, count_log: int):
             "--depth", "300",
             "--repeat", "log_mean_absolute_error", str(packets_per_log),
         ])
-        x_countmin = np.array(result_countmin['index'].to_numpy())
-        y_countmin = np.array(result_countmin['log_mean_absolute_error'].to_numpy())
+        x_countmin = np.array(result_countmin.index.to_numpy())
+        y_countmin = np.array(
+            result_countmin['log_mean_absolute_error'].to_numpy())
         plt.figure(num="mae_dynamic_countmin")
         plt.plot(x_countmin, y_countmin, label=f"elastic {i + 1}")
         plt.figure(num="mae_dynamic_countmin_derivative")
-        plt.plot(x_countmin, np.gradient(y_countmin, packets_per_log), label=f"elastic {i + 1}")
+        plt.plot(x_countmin, np.gradient(
+            y_countmin, packets_per_log), label=f"elastic {i + 1}")
 
     result_dynamic = execute_command([
         "--type", "dynamic",
         "--width", "28",
         "--depth", "300",
-        "--repeat", "modify_size_cyclic", str(packets_per_modify_size), str(count_sketch),
+        "--repeat", "modify_size_cyclic", str(
+            packets_per_modify_size), str(count_sketch),
         "--repeat", "log_mean_absolute_error", str(packets_per_log)])
 
-    x_dynamic = np.array(result_dynamic['index'].to_numpy())
+    x_dynamic = np.array(result_dynamic.index.to_numpy())
     y_dynamic = np.array(result_dynamic['log_mean_absolute_error'].to_numpy())
     plt.figure(num="mae_dynamic_countmin")
     plt.plot(x_dynamic, y_dynamic, label="dynamic")
     plt.figure(num="mae_dynamic_countmin_derivative")
-    plt.plot(x_dynamic, np.gradient(y_dynamic, packets_per_log), label=f"dynamic")
-
+    plt.plot(x_dynamic, np.gradient(
+        y_dynamic, packets_per_log), label=f"dynamic")
 
     for xc in range(packets_per_modify_size, packets_per_modify_size * count_sketch, packets_per_modify_size):
         plt.figure(num="mae_dynamic_countmin")
@@ -126,19 +256,21 @@ def plot_mae_elastic_shrink(count_sketch: int, count_log: int):
     packets_per_log = COUNT_PACKETS // count_log
 
     for i in range(count_sketch):
-        factor = pow(2,i)
+        factor = pow(2, i)
         result_countmin = execute_command([
             "--type", "elastic",
             "--width", str(28 * factor),
             "--depth", "300",
             "--repeat", "log_mean_absolute_error", str(packets_per_log),
         ])
-        x_countmin = np.array(result_countmin['index'].to_numpy())
-        y_countmin = np.array(result_countmin['log_mean_absolute_error'].to_numpy())
+        x_countmin = np.array(result_countmin.index.to_numpy())
+        y_countmin = np.array(
+            result_countmin['log_mean_absolute_error'].to_numpy())
         plt.figure(num="mae_elastic_shrink")
         plt.plot(x_countmin, y_countmin, label=f"elastic {factor}")
         plt.figure(num="mae_elastic_shrink_derivative")
-        plt.plot(x_countmin, np.gradient(y_countmin, packets_per_log), label=f"elastic {factor}")
+        plt.plot(x_countmin, np.gradient(
+            y_countmin, packets_per_log), label=f"elastic {factor}")
 
     result_elastic_shrink = execute_command([
         "--type", "elastic",
@@ -147,13 +279,14 @@ def plot_mae_elastic_shrink(count_sketch: int, count_log: int):
         "--repeat", "shrink", str(packets_per_shrink),
         "--repeat", "log_mean_absolute_error", str(packets_per_log)])
 
-    x_elastic_shrink = np.array(result_elastic_shrink['index'].to_numpy())
-    y_elastic_shrink = np.array(result_elastic_shrink['log_mean_absolute_error'].to_numpy())
+    x_elastic_shrink = np.array(result_elastic_shrink.index.to_numpy())
+    y_elastic_shrink = np.array(
+        result_elastic_shrink['log_mean_absolute_error'].to_numpy())
     plt.figure(num="mae_elastic_shrink")
     plt.plot(x_elastic_shrink, y_elastic_shrink, label="elastic shrink")
     plt.figure(num="mae_elastic_shrink_derivative")
-    plt.plot(x_elastic_shrink, np.gradient(y_elastic_shrink, packets_per_log), label=f"elastic*")
-
+    plt.plot(x_elastic_shrink, np.gradient(
+        y_elastic_shrink, packets_per_log), label=f"elastic*")
 
     for xc in range(packets_per_shrink, packets_per_shrink * count_sketch, packets_per_shrink):
         plt.figure(num="mae_elastic_shrink")
@@ -179,6 +312,7 @@ def plot_mae_elastic_shrink(count_sketch: int, count_log: int):
 
     plt.show()
 
+
 def plot_operations_per_second(dynamic_max_size: int):
     packets_per_expand = COUNT_PACKETS // dynamic_max_size
 
@@ -202,6 +336,7 @@ def plot_operations_per_second(dynamic_max_size: int):
     plt.savefig('operations_per_second.png')
     plt.show()
 
+
 def plot_dynamic_sketches_loads(dynamic_max_size: int, count_buckets):
     packets_per_expand = COUNT_PACKETS // dynamic_max_size
     result = execute_command([
@@ -214,7 +349,8 @@ def plot_dynamic_sketches_loads(dynamic_max_size: int, count_buckets):
     loads = last_state['loads']
     loads.sort(key=lambda l: (l['min_key'], l['min_key']-l['max_key']))
     num_events_max = max([n['num_events'] for n in loads])
-    updates_since_last_clear_max = max([n['updates_since_last_clear'] for n in loads])
+    updates_since_last_clear_max = max(
+        [n['updates_since_last_clear'] for n in loads])
     for i in range(len(loads)):
         num_events = loads[i]['num_events']
         updates_since_last_clear = loads[i]['updates_since_last_clear']
@@ -222,11 +358,13 @@ def plot_dynamic_sketches_loads(dynamic_max_size: int, count_buckets):
         max_key = loads[i]['max_key']
         color = num_events / num_events_max
         print(i, min_key, max_key, max_key-min_key, num_events)
-        plt.hlines(y=i, xmin=min_key, xmax=max_key,linewidth=4, color=(color,color,0))
+        plt.hlines(y=i, xmin=min_key, xmax=max_key,
+                   linewidth=4, color=(color, color, 0))
     plt.title('sketches ranges and load')
     plt.xlabel('ip as integer')
     plt.ylabel('sketch index')
     plt.show()
+
 
 def plot_dynamic_sketches_count(dynamic_max_size: int):
     packets_per_expand = COUNT_PACKETS // dynamic_max_size
@@ -238,7 +376,8 @@ def plot_dynamic_sketches_count(dynamic_max_size: int):
     last_state = result.iloc[-1]
     loads = last_state['loads']
     loads.sort(key=lambda l: (l['min_key'], l['min_key']-l['max_key']))
-    xs = list(set([l['min_key'] for l in loads]).union(set([l['max_key'] for l in loads])))
+    xs = list(set([l['min_key'] for l in loads]).union(
+        set([l['max_key'] for l in loads])))
     xs.sort()
     ys = [0 for x in xs]
     for l in loads:
@@ -255,6 +394,7 @@ def plot_dynamic_sketches_count(dynamic_max_size: int):
     plt.ylabel('sketch count')
     plt.show()
 
+
 def plot_mae_dynamic_and_elastic(count_log, count_expand, count_buckets):
     packets_per_log = COUNT_PACKETS // count_log
     packets_per_expand = COUNT_PACKETS // count_expand
@@ -270,10 +410,10 @@ def plot_mae_dynamic_and_elastic(count_log, count_expand, count_buckets):
         "--buckets", str(count_buckets),
         "--repeat", "log_mean_absolute_error", str(packets_per_log)])
 
-    x_dynamic = np.array(result_dynamic['index'].to_numpy())
+    x_dynamic = np.array(result_dynamic.index.to_numpy())
     y_dynamic = np.array(result_dynamic['log_mean_absolute_error'].to_numpy())
 
-    x_elastic = np.array(result_elastic['index'].to_numpy())
+    x_elastic = np.array(result_elastic.index.to_numpy())
     y_elastic = np.array(result_elastic['log_mean_absolute_error'].to_numpy())
 
     plt.grid()
@@ -286,11 +426,58 @@ def plot_mae_dynamic_and_elastic(count_log, count_expand, count_buckets):
 
     plt.show()
 
+
+def plot_predict_distribution(num_bins=32, factor=1):
+    packets = get_packets(filepath_packets)[:COUNT_PACKETS]
+    uint32_max = 0xffffffff
+    bin_count = 2048*4
+    bins = np.arange(0, uint32_max, uint32_max / bin_count)
+    counts, bins = np.histogram(packets, bins=bins)
+    plt.ylabel('packet count')
+    plt.xlabel('ip as integer')
+    plt.stairs(counts, bins)
+    dist_bin_width = uint32_max / num_bins
+    dist_bins = np.arange(0, uint32_max+dist_bin_width, dist_bin_width)
+    dist_counts = np.zeros(num_bins)
+    for p in packets:
+        dist_counts *= factor
+        index = int(p / uint32_max * num_bins)
+        dist_counts[index] += 1
+    plt.stairs(dist_counts, dist_bins)
+    plt.show()
+
+
+def plot_mae_countmin_and_linked_cell():
+    result_countmin = execute_command(
+        ["--type", "countmin", "--repeat", "log_mean_absolute_error", "1000", "--repeat", "log_memory_usage", "1000"])
+    result_linkedcell = execute_command(
+        ["--type", "cellsketch", "--repeat", "log_mean_absolute_error", "1000", "--repeat", "log_memory_usage", "1000"])
+    x_countmin = np.array(result_countmin.index.to_numpy())
+    y_countmin = np.array(
+        result_countmin['log_mean_absolute_error'].to_numpy())
+    x_countsketch = np.array(result_linkedcell.index.to_numpy())
+    y_countsketch = np.array(
+        result_linkedcell['log_mean_absolute_error'].to_numpy())
+    plt.plot(x_countmin, y_countmin, label="countmin")
+    plt.plot(x_countsketch, y_countsketch, label="cellsketch")
+    plt.ylabel('MAE')
+    plt.xlabel('packets')
+    plt.title('packets distribution')
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+
 if __name__ == "__main__":
-    #plot_mae_dynamic_and_elastic(128, 8, 8)
-    #plot_mae_elastic_shrink(3, 128)
-    plot_mae_dynamic_and_countmin(3, 128)
-    #plot_ip_distribution()
-    #plot_dynamic_sketches_loads(16, 8)
-    #plot_dynamic_sketches_count(16)
-    #plot_operations_per_second(64)
+    # plot_predict_distribution()
+    # plot_mae_dynamic_and_elastic(128, 8, 8)
+    # plot_mae_elastic_shrink(3, 128)
+    # plot_mae_dynamic_and_countmin(3, 128)
+    # plot_ip_distribution()
+    # plot_dynamic_sketches_loads(16, 8)
+    # plot_dynamic_sketches_count(16)
+    # plot_operations_per_second(64)
+    # plot_mae_countmin_and_countsketch()
+    # plot_mae_countmin_and_linked_cell()
+    # plot_mae_dynamic_and_linked_cell(4, 128)
+    plot_mae_dynamic_expand(10, 128)

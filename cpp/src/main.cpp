@@ -8,15 +8,16 @@
 #include "NaiveSketch.h"
 #include "ElasticSketch.h"
 #include "Dictionary.h"
+#include "LinkedCellSketch.h"
 
 typedef std::chrono::high_resolution_clock chrono_clock;
 typedef std::chrono::duration<double, std::milli> duration;
 
-constexpr float epsilon = 0.001;
-constexpr float delta = 0.001;
+constexpr float epsilon = 0.01;
+constexpr float delta = 0.01;
 constexpr int SEED = 0x1337C0D3;
-constexpr int NUM_PACKETS = 1024 * 1024 * 32;
 
+int DIST_BUCKET_COUNT = 32;
 int CM_WIDTH = ceil(exp(1) / epsilon);
 int CM_DEPTH = ceil(log(1 / delta));
 int BUCKET_COUNT = 32;
@@ -90,7 +91,7 @@ Dictionary *createDictionary(std::string type)
 	}
 	else if (type == "dynamic")
 	{
-        return new DynamicSketch(CM_WIDTH, CM_DEPTH, SEED, BUCKET_COUNT);
+        return new DynamicSketch(CM_WIDTH, CM_DEPTH, SEED, BUCKET_COUNT, DIST_BUCKET_COUNT);
 	}
 	else if (type == "countmin")
 	{
@@ -103,6 +104,10 @@ Dictionary *createDictionary(std::string type)
 	else if (type == "elastic")
 	{
         return new ElasticDictionary(BUCKET_COUNT, BUCKET_COUNT * COUNTER_PER_BUCKET * 8 + CM_WIDTH * CM_DEPTH, SEED);
+	}
+	else if (type == "cellsketch")
+	{
+        return new LinkedCellSketch(CM_WIDTH, CM_DEPTH, 8);
 	}
 	else
 	{
@@ -371,7 +376,7 @@ void proccess_input(int argc, const char* argv[])
 
 
 void manual_argument() {
-    std::string cmd = "--limit_file /home/dbiton/Desktop/Projects/DynamicSketch/pcaps/capture.txt 1000000 --type dynamic --buckets 32 --repeat log_dynamic_sketches_loads 15625 --repeat expand 15625";
+    std::string cmd = "--limit_file /home/dbiton/Desktop/Projects/DynamicSketch/pcaps/capture.txt 2000000 --type cellsketch --width 1000 --depth 5 --repeat expand 250000 --repeat log_mean_absolute_error 15625";
     std::vector<const char*> args;
 	std::istringstream iss(cmd);
 
