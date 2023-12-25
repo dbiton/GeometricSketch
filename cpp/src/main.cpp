@@ -107,7 +107,7 @@ Dictionary *createDictionary(std::string type)
 	}
 	else if (type == "cellsketch")
 	{
-        return new LinkedCellSketch(CM_WIDTH, CM_DEPTH, 8);
+        return new LinkedCellSketch(CM_WIDTH, CM_DEPTH, 2);
 	}
 	else
 	{
@@ -376,7 +376,7 @@ void proccess_input(int argc, const char* argv[])
 
 
 void manual_argument() {
-    std::string cmd = "--limit_file /home/dbiton/Desktop/Projects/DynamicSketch/pcaps/capture.txt 2000000 --type cellsketch --width 1000 --depth 5 --repeat expand 250000 --repeat log_mean_absolute_error 15625";
+    std::string cmd = "--limit_file /home/dbiton/Desktop/Projects/DynamicSketch/pcaps/capture.txt 10000 --type cellsketch --width 1000 --depth 5 --repeat expand 1000 --repeat log_mean_absolute_error 78";
     std::vector<const char*> args;
 	std::istringstream iss(cmd);
 

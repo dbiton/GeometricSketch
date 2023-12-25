@@ -66,7 +66,7 @@ def plot_mae_countmin_and_countsketch():
     plt.show()
 
 
-def plot_mae_dynamic_expand(count_sketch: int, count_log: int):
+def plot_mae_cellsketch_expand(count_sketch: int, count_log: int):
     packets_per_modify_size = COUNT_PACKETS // count_sketch
     packets_per_log = COUNT_PACKETS // count_log
     width = 1000
@@ -480,4 +480,4 @@ if __name__ == "__main__":
     # plot_mae_countmin_and_countsketch()
     # plot_mae_countmin_and_linked_cell()
     # plot_mae_dynamic_and_linked_cell(4, 128)
-    plot_mae_dynamic_expand(10, 128)
+    plot_mae_cellsketch_expand(8, 128)
