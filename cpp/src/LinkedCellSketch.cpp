@@ -45,27 +45,43 @@ int LinkedCellSketch::query(uint32_t key)
 
 int LinkedCellSketch::undoExpand(int n)
 {
+    int counter_undo;
     for (auto &row : rows)
     {
-        for (int i = row.size() - n; i < row.size(); i++)
+        counter_undo = 0;
+        for (int i_child = row.size() - 1; i_child >= row.size() - n; i_child--)
         {
+            int i_parent = getParentIndex(i_child);
+            if (i_parent - offset < 0) {
+                break;
+            }
+            row[i_parent - offset] += row[i_child - offset];
+            counter_undo++;
         }
+        row.erase(row.end() - counter_undo);
     }
+    return counter_undo;
 }
 
 int LinkedCellSketch::compress(int n)
 {
+    int compress_counter;
     for (auto &row : rows)
     {
-        int first_child_index = getFirstChildIndex(offset);
-        for (int counter_index = 0; counter_index < n; counter_index++)
+        compress_counter = 0;
+        for (int i_parent = 0; i_parent < n; i_parent++)
         {
-            for (int child_num = 0; child_num < branching_factor; child_num++){
-                int child_index = first_child_index + 0;
-                // WIP
+            for (int i_child = getFirstChildIndex(i_parent); i_child < branching_factor; i_child++){
+                if (i_child - offset > row.size()) {
+                    break;
+                }
+                row[i_child - offset] += row[i_parent - offset];
+                compress_counter++;
             }
         }
+        row.erase(row.begin(), row.begin() + compress_counter);
     }
+    return compress_counter;
 }
 
 void LinkedCellSketch::expand(int n)
@@ -83,7 +99,7 @@ void LinkedCellSketch::expand()
 
 int LinkedCellSketch::getSize() const
 {
-    assert(false);
+    return sizeof(unsigned) * 2 + sizeof(uint32_t) * rows.size() * rows[0].size();
 }
 
 void LinkedCellSketch::shrink()

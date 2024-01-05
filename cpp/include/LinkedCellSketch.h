@@ -5,7 +5,7 @@
 class LinkedCellSketch : public Dictionary
 {
     std::vector<std::vector<uint32_t>> rows;
-    unsigned offset;
+    int offset;
     unsigned branching_factor;
     unsigned width;
 public:
