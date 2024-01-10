@@ -7,7 +7,7 @@ import pandas as pd
 
 
 filepath_packets = "/home/dbiton/Desktop/Projects/DynamicSketch/pcaps/capture.txt"
-filepath_executable = "../cpp/build-DynamicSketch-Desktop-Debug/DynamicSketch"
+filepath_executable = "/home/dbiton/Desktop/Projects/DynamicSketch/cpp/build-DynamicSketch-Desktop-Debug/DynamicSketch"
 
 COUNT_PACKETS_MAX = 32000000
 COUNT_PACKETS = min(1000000, COUNT_PACKETS_MAX)
@@ -467,6 +467,54 @@ def plot_mae_countmin_and_linked_cell():
     plt.grid()
     plt.show()
 
+def plot_branching_factor(branching_factors: list, count_log: int):
+    sketch_width = 500
+    sketch_depth = 5
+    packets_per_log = COUNT_PACKETS // count_log
+    count_expands = max(branching_factors)
+    packets_per_expand = COUNT_PACKETS // count_expands
+    result_countmin = execute_command([
+        "--type", "countmin",
+        "--width", str(sketch_width),
+        "--depth", str(sketch_depth),
+        "--repeat", "log_mean_absolute_error", str(packets_per_log),
+        "--repeat", "log_memory_usage", str(packets_per_log)])
+    y_mae = np.array(result_countmin['log_mean_absolute_error'].to_numpy())
+    y_mem = np.array(result_countmin['memory_usage'].to_numpy())
+    x = np.array(result_countmin.index.to_numpy())
+    plt.figure(num=0)
+    plt.grid()
+    plt.ylabel('Memory Usage (Bytes)')
+    plt.xlabel('Packets Count')
+    plt.plot(x, y_mem, label="countmin", marker='o')
+    plt.figure(num=1)
+    plt.grid()
+    plt.ylabel('Mean Average Error')
+    plt.xlabel('Packets Count')
+    plt.plot(x, y_mae, label="countmin", marker='o')
+    markers = ["D", "s", "^"]
+    for i, branching_factor in enumerate(branching_factors):
+        result_cellsketch = execute_command([
+            "--type", "cellsketch",
+            "--width", str(sketch_width),
+            "--depth", str(sketch_depth),
+            "--branching_factor", str(branching_factor),
+            "--repeat", "expand", str(packets_per_expand), str(sketch_width),
+            "--repeat", "shrink", str(packets_per_expand), str(sketch_width),
+            "--repeat", "log_mean_absolute_error", str(packets_per_log),
+            "--repeat", "log_memory_usage", str(packets_per_log)])
+        y_mae = np.array(result_cellsketch['log_mean_absolute_error'].to_numpy())
+        y_mem = np.array(result_cellsketch['memory_usage'].to_numpy())
+        x = np.array(result_cellsketch.index.to_numpy())
+        plt.figure(num=0)
+        plt.plot(x, y_mem, label=branching_factor, marker=markers[i])
+        plt.figure(num=1)
+        plt.plot(x, y_mae, label=branching_factor, marker=markers[i])
+    plt.figure(num=0)
+    plt.legend()
+    plt.figure(num=1)
+    plt.legend()
+    plt.show()
 
 if __name__ == "__main__":
     # plot_predict_distribution()
@@ -480,4 +528,5 @@ if __name__ == "__main__":
     # plot_mae_countmin_and_countsketch()
     # plot_mae_countmin_and_linked_cell()
     # plot_mae_dynamic_and_linked_cell(4, 128)
-    plot_mae_cellsketch_expand(8, 128)
+    # plot_mae_cellsketch_expand(2, 128)
+    plot_branching_factor([2,4,8], 16)
