@@ -1,16 +1,19 @@
+from math import floor, log2
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import colormaps
 import subprocess as sp
 import json
 import pandas as pd
-
+from collections import Counter
+from scipy.optimize import curve_fit
+from scipy.special import zetac
 
 filepath_packets = "/home/dbiton/Desktop/Projects/DynamicSketch/pcaps/capture.txt"
-filepath_executable = "../cpp/build-DynamicSketch-Desktop-Debug/DynamicSketch"
+filepath_executable = "/home/dbiton/Desktop/Projects/DynamicSketch/cpp/build-DynamicSketch-Desktop-Debug/DynamicSketch"
 
 COUNT_PACKETS_MAX = 32000000
-COUNT_PACKETS = min(1000000, COUNT_PACKETS_MAX)
+COUNT_PACKETS = min(1000, COUNT_PACKETS_MAX)
 
 
 def execute_command(arguments: list):
@@ -33,36 +36,33 @@ def get_packets(filepath_packets: str):
     return np.array([int(ip) for ip in file_packets.readlines()])
 
 
+def zipfian(x, a, b):
+    return ((x+b)**(-a))
+
+
 def plot_ip_distribution():
+    fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
+    ax0.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
+    ax1.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
+    
     packets = get_packets(filepath_packets)
     uint32_max = 0xffffffff
-    bin_count = 2048*4
+    bin_count = 256
     bins = np.arange(0, uint32_max, uint32_max / bin_count)
     counts, bins = np.histogram(packets, bins=bins)
-    plt.ylabel('packet count')
-    plt.xlabel('ip as integer')
-    plt.stairs(counts, bins)
-    plt.show()
+    ax1.set_ylabel('frequency')
+    ax1.set_xlabel('IP')
+    ax1.stairs(counts, bins)
 
+    counter = Counter(packets)
+    frequency = sorted(list(counter.values()), key=lambda x: -x)
+    rank = np.arange(1, len(frequency)+1)
+    ax0.plot(rank, frequency)
+    ax0.set_yscale('log')
+    ax0.set_xscale('log')
+    ax0.set_xlabel('frequency rank')
+    ax0.set_ylabel('frequency')
 
-def plot_mae_countmin_and_countsketch():
-    result_countmin = execute_command(
-        ["--type", "countmin", "--repeat", "log_mean_absolute_error", "1000"])
-    result_countsketch = execute_command(
-        ["--type", "countsketch", "--repeat", "log_mean_absolute_error", "1000"])
-    x_countmin = np.array(result_countmin.index.to_numpy())
-    y_countmin = np.array(
-        result_countmin['log_mean_absolute_error'].to_numpy())
-    x_countsketch = np.array(result_countsketch.index.to_numpy())
-    y_countsketch = np.array(
-        result_countsketch['log_mean_absolute_error'].to_numpy())
-    plt.plot(x_countmin, y_countmin, label="countmin")
-    plt.plot(x_countsketch, y_countsketch, label="countsketch")
-    plt.ylabel('MAE')
-    plt.xlabel('packets')
-    plt.title('packets distribution')
-    plt.legend()
-    plt.grid()
     plt.show()
 
 
@@ -80,30 +80,36 @@ def plot_mae_cellsketch_expand(count_sketch: int, count_log: int):
         "--repeat", "log_mean_absolute_error", str(packets_per_log)])
 
     result_count_min = execute_command([
-        "--type", "countmin", 
+        "--type", "countmin",
         "--repeat", "log_mean_absolute_error", str(packets_per_log),
-        "--width", str(width), 
+        "--width", str(width),
         "--depth", str(depth)])
+
     result_count_max = execute_command([
-        "--type", "countmin", 
+        "--type", "countmin",
         "--repeat", "log_mean_absolute_error", str(packets_per_log),
-        "--width", str(width*count_sketch), 
+        "--width", str(width*count_sketch),
         "--depth", str(depth)])
 
     x_dynamic = np.array(result_dynamic.index.to_numpy())
     y_dynamic = np.array(result_dynamic['log_mean_absolute_error'].to_numpy())
     x_count_min = np.array(result_count_min.index.to_numpy())
-    y_count_min = np.array(result_count_min['log_mean_absolute_error'].to_numpy())
+    y_count_min = np.array(
+        result_count_min['log_mean_absolute_error'].to_numpy())
     x_count_max = np.array(result_count_max.index.to_numpy())
-    y_count_max = np.array(result_count_max['log_mean_absolute_error'].to_numpy())
+    y_count_max = np.array(
+        result_count_max['log_mean_absolute_error'].to_numpy())
     plt.figure(num="mae_dynamic_countmin")
     plt.plot(x_dynamic, y_dynamic, label="dynamic")
     plt.plot(x_count_min, y_count_min, label="min")
     plt.plot(x_count_max, y_count_max, label="max")
     plt.figure(num="mae_dynamic_countmin_derivative")
-    plt.plot(x_dynamic, np.gradient(y_dynamic, packets_per_log), label=f"dynamic")
-    plt.plot(x_count_min, np.gradient(y_count_min, packets_per_log), label=f"min")
-    plt.plot(x_count_max, np.gradient(y_count_max, packets_per_log), label=f"max")
+    plt.plot(x_dynamic, np.gradient(
+        y_dynamic, packets_per_log), label=f"dynamic")
+    plt.plot(x_count_min, np.gradient(
+        y_count_min, packets_per_log), label=f"min")
+    plt.plot(x_count_max, np.gradient(
+        y_count_max, packets_per_log), label=f"max")
 
     plt.figure(num="mae_dynamic_countmin")
     plt.legend()
@@ -337,116 +343,6 @@ def plot_operations_per_second(dynamic_max_size: int):
     plt.show()
 
 
-def plot_dynamic_sketches_loads(dynamic_max_size: int, count_buckets):
-    packets_per_expand = COUNT_PACKETS // dynamic_max_size
-    result = execute_command([
-        "--type", "dynamic",
-        "--buckets", str(count_buckets),
-        "--repeat", "log_dynamic_sketches_loads", str(packets_per_expand),
-        "--repeat", "expand", str(packets_per_expand)
-    ])
-    last_state = result.iloc[-1]
-    loads = last_state['loads']
-    loads.sort(key=lambda l: (l['min_key'], l['min_key']-l['max_key']))
-    num_events_max = max([n['num_events'] for n in loads])
-    updates_since_last_clear_max = max(
-        [n['updates_since_last_clear'] for n in loads])
-    for i in range(len(loads)):
-        num_events = loads[i]['num_events']
-        updates_since_last_clear = loads[i]['updates_since_last_clear']
-        min_key = loads[i]['min_key']
-        max_key = loads[i]['max_key']
-        color = num_events / num_events_max
-        print(i, min_key, max_key, max_key-min_key, num_events)
-        plt.hlines(y=i, xmin=min_key, xmax=max_key,
-                   linewidth=4, color=(color, color, 0))
-    plt.title('sketches ranges and load')
-    plt.xlabel('ip as integer')
-    plt.ylabel('sketch index')
-    plt.show()
-
-
-def plot_dynamic_sketches_count(dynamic_max_size: int):
-    packets_per_expand = COUNT_PACKETS // dynamic_max_size
-    result = execute_command([
-        "--type", "dynamic",
-        "--repeat", "log_dynamic_sketches_loads", str(packets_per_expand),
-        "--repeat", "expand", str(packets_per_expand)
-    ])
-    last_state = result.iloc[-1]
-    loads = last_state['loads']
-    loads.sort(key=lambda l: (l['min_key'], l['min_key']-l['max_key']))
-    xs = list(set([l['min_key'] for l in loads]).union(
-        set([l['max_key'] for l in loads])))
-    xs.sort()
-    ys = [0 for x in xs]
-    for l in loads:
-        l_min = l['min_key']
-        l_max = l['max_key']
-        i_min = xs.index(l_min)
-        i_max = xs.index(l_max)
-        print(i_min, i_max)
-        for i in range(i_min, i_max + 1):
-            ys[i] += 1
-    plt.title("sketches count")
-    plt.plot(xs, ys)
-    plt.xlabel('ip as integer')
-    plt.ylabel('sketch count')
-    plt.show()
-
-
-def plot_mae_dynamic_and_elastic(count_log, count_expand, count_buckets):
-    packets_per_log = COUNT_PACKETS // count_log
-    packets_per_expand = COUNT_PACKETS // count_expand
-
-    result_dynamic = execute_command([
-        "--type", "dynamic",
-        "--buckets", str(count_buckets),
-        "--repeat", "expand", str(packets_per_expand),
-        "--repeat", "log_mean_absolute_error", str(packets_per_log)])
-
-    result_elastic = execute_command([
-        "--type", "elastic",
-        "--buckets", str(count_buckets),
-        "--repeat", "log_mean_absolute_error", str(packets_per_log)])
-
-    x_dynamic = np.array(result_dynamic.index.to_numpy())
-    y_dynamic = np.array(result_dynamic['log_mean_absolute_error'].to_numpy())
-
-    x_elastic = np.array(result_elastic.index.to_numpy())
-    y_elastic = np.array(result_elastic['log_mean_absolute_error'].to_numpy())
-
-    plt.grid()
-    plt.plot(x_dynamic, y_dynamic, label="dynamic")
-    plt.plot(x_elastic, y_elastic, label="elastic")
-    plt.legend()
-    plt.ylabel('MAE')
-    plt.xlabel('packets')
-    plt.savefig('mae_dynamic_and_elastic.png')
-
-    plt.show()
-
-
-def plot_predict_distribution(num_bins=32, factor=1):
-    packets = get_packets(filepath_packets)[:COUNT_PACKETS]
-    uint32_max = 0xffffffff
-    bin_count = 2048*4
-    bins = np.arange(0, uint32_max, uint32_max / bin_count)
-    counts, bins = np.histogram(packets, bins=bins)
-    plt.ylabel('packet count')
-    plt.xlabel('ip as integer')
-    plt.stairs(counts, bins)
-    dist_bin_width = uint32_max / num_bins
-    dist_bins = np.arange(0, uint32_max+dist_bin_width, dist_bin_width)
-    dist_counts = np.zeros(num_bins)
-    for p in packets:
-        dist_counts *= factor
-        index = int(p / uint32_max * num_bins)
-        dist_counts[index] += 1
-    plt.stairs(dist_counts, dist_bins)
-    plt.show()
-
-
 def plot_mae_countmin_and_linked_cell():
     result_countmin = execute_command(
         ["--type", "countmin", "--repeat", "log_mean_absolute_error", "1000", "--repeat", "log_memory_usage", "1000"])
@@ -468,16 +364,294 @@ def plot_mae_countmin_and_linked_cell():
     plt.show()
 
 
+def plot_branching_factor(branching_factors: list, count_log: int):
+    sketch_width = 500
+    sketch_depth = 5
+    packets_per_log = COUNT_PACKETS // count_log
+    counters_added_per_row = max(branching_factors) * sketch_width
+    packets_per_expand = COUNT_PACKETS // counters_added_per_row
+    result_countmin = execute_command([
+        "--type", "countmin",
+        "--width", str(sketch_width),
+        "--depth", str(sketch_depth),
+        "--repeat", "log_average_relative_error", str(packets_per_log),
+        "--repeat", "log_memory_usage", str(packets_per_log)])
+    y_mae = np.array(result_countmin['log_average_relative_error'].to_numpy())
+    y_mem = np.array(result_countmin['memory_usage'].to_numpy())
+    x = np.array(result_countmin.index.to_numpy())
+    fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
+    ax0.plot(x, y_mem, label="CMS", marker='o')
+    ax1.plot(x, y_mae, label="CMS", marker='o')
+    ax0.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
+    ax1.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
+
+    ax0.grid()
+    ax0.set_ylabel('Memory Usage (Bytes)')
+    ax0.set_xlabel('Packets Count')
+
+    ax1.grid()
+    ax1.set_ylabel('ARE')
+    ax1.set_xlabel('Packets Count')
+    markers = ["D", "s", "^"]
+    for i, branching_factor in enumerate(branching_factors):
+        result_cellsketch = execute_command([
+            "--type", "cellsketch",
+            "--width", str(sketch_width),
+            "--depth", str(sketch_depth),
+            "--branching_factor", str(branching_factor),
+            "--repeat", "expand", str(packets_per_expand), "1",
+            "--repeat", "compress", str("1000000"), str(branching_factor),
+            "--repeat", "log_average_relative_error", str(packets_per_log),
+            "--repeat", "log_memory_usage", str(packets_per_log)])
+        y_mae = np.array(
+            result_cellsketch['log_average_relative_error'].to_numpy())
+        y_mem = np.array(result_cellsketch['memory_usage'].to_numpy())
+        x = np.array(result_cellsketch.index.to_numpy())
+        ax0.plot(x, y_mem, label=f'GS-{branching_factor}', marker=markers[i])
+        ax1.plot(x, y_mae, label=f'GS-{branching_factor}', marker=markers[i])
+    ax0.legend()
+    ax1.legend()
+    plt.show()
+
+
+def plot_gs_cms_comparison(B: int, L: int, count_log: int):
+    sketch_width = 500
+    sketch_depth = 5
+    packets_per_log = COUNT_PACKETS // count_log
+    counters_added_per_row = sketch_width * (B**L-1) / (B-1)
+    packets_per_expand = floor(COUNT_PACKETS / counters_added_per_row)
+
+    fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
+
+    markers = ["D", "s", "^"]
+    for l in range(L):
+        cm_width = sketch_width * B**l
+        result_countmin = execute_command([
+            "--type", "countmin",
+            "--width", str(cm_width),
+            "--depth", str(sketch_depth),
+            "--repeat", "log_average_relative_error", str(packets_per_log),
+            "--repeat", "log_memory_usage", str(packets_per_log)])
+        y_mae = np.array(
+            result_countmin['log_average_relative_error'].to_numpy())
+        y_mem = np.array(result_countmin['memory_usage'].to_numpy())
+        x = np.array(result_countmin.index.to_numpy())
+        ax0.plot(x, y_mem, label=f"CMS-{l}", marker=markers[l])
+        ax1.plot(x, y_mae, label=f"CMS-{l}", marker=markers[l])
+
+    ax0.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
+    ax1.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
+    ax0.grid()
+    ax0.set_ylabel('Memory Usage (Bytes)')
+    ax0.set_xlabel('Packets Count')
+    ax1.grid()
+    ax1.set_ylabel('ARE')
+    ax1.set_xlabel('Packets Count')
+    result_cellsketch = execute_command([
+        "--type", "cellsketch",
+        "--width", str(sketch_width),
+        "--depth", str(sketch_depth),
+        "--branching_factor", str(B),
+        "--repeat", "expand", str(packets_per_expand), "1",
+        "--repeat", "compress", str(packets_per_expand), str(1000000),
+        "--repeat", "log_average_relative_error", str(packets_per_log),
+        "--repeat", "log_memory_usage", str(packets_per_log)])
+    y_mae = np.array(
+        result_cellsketch['log_average_relative_error'].to_numpy())
+    y_mem = np.array(result_cellsketch['memory_usage'].to_numpy())
+    x = np.array(result_cellsketch.index.to_numpy())
+    ax0.plot(x, y_mem, label=f'GS', marker='o')
+    ax1.plot(x, y_mae, label=f'GS', marker='o')
+    ax0.legend()
+    ax1.legend()
+    plt.show()
+
+# replace with undo expand
+def plot_gs_dynamic_compression_comparison(B: int, L: int, count_log: int):
+    sketch_width = 500
+    sketch_depth = 5
+    packets_per_log = COUNT_PACKETS // count_log
+    packets_per_modify = floor(COUNT_PACKETS / L) // 2
+
+    fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
+
+    expand_sizes = [sketch_width * B ** l for l in range(1,L)]
+    command_lines_expand   = sum([["--once", "expand", str((i+1)*packets_per_modify), str(e)] for i, e in enumerate(expand_sizes)], [])
+    command_lines_shrink   = sum([["--once", "shrink", str((i+1)*packets_per_modify + COUNT_PACKETS // 2), str(e)] for i, e in enumerate(reversed(expand_sizes))], [])
+    command_lines_compress = sum([["--once", "compress", str((i+1)*packets_per_modify + COUNT_PACKETS // 2), str(e)] for i, e in enumerate(reversed(expand_sizes))], [])
+    command_countmin = [
+        "--type", "dynamic",
+        "--width", str(sketch_width),
+        "--depth", str(sketch_depth),
+        "--repeat", "log_average_relative_error", str(packets_per_log),
+        "--repeat", "log_memory_usage", str(packets_per_log)
+    ] + command_lines_expand
+    command_geometric = [
+            "--type", "cellsketch",
+            "--width", str(sketch_width),
+            "--depth", str(sketch_depth),
+            "--branching_factor", str(B),
+            "--repeat", "log_average_relative_error", str(packets_per_log),
+            "--repeat", "log_memory_usage", str(packets_per_log)
+    ] + command_lines_expand 
+
+
+    markers = ['D', 'X', 's', '^']
+    names = ["shrink", "compress"]
+    names_type = ["GS", "DCMS"]
+    for j, command_lines0 in enumerate([command_geometric, command_countmin]):
+        for i, command_lines1 in enumerate([command_lines_shrink, command_lines_compress]):
+            result = execute_command(
+                command_lines0 + command_lines1
+            )
+            y_mae = np.array(
+                result['log_average_relative_error'].to_numpy())
+            y_mem = np.array(result['memory_usage'].to_numpy())
+            x = np.array(result.index.to_numpy())
+            ax0.plot(x, y_mem, label=f'{names_type[j]}-{names[i]}', marker=markers[i+j*2])
+            ax1.plot(x, y_mae, label=f'{names_type[j]}-{names[i]}', marker=markers[i+j*2])
+
+    ax0.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
+    ax1.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
+    ax0.grid()
+    ax0.set_ylabel('Memory Usage (Bytes)')
+    ax0.set_xlabel('Packets Count')
+    ax1.grid()
+    ax1.set_ylabel('ARE')
+    ax1.set_xlabel('Packets Count')
+    ax0.legend()
+    ax1.legend()
+    plt.show()
+
+# replace with undo expand
+def plot_gs_dynamic_expand_comparison(B: int, L: int, count_log: int):
+    sketch_width = 500
+    sketch_depth = 5
+    packets_per_log = COUNT_PACKETS // count_log
+    packets_per_modify = floor(COUNT_PACKETS / L)
+
+    fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
+
+    expand_sizes = [sketch_width * B ** l for l in range(1,L)]
+    command_lines_expand   = sum([["--once", "expand", str((i+1)*packets_per_modify), str(e)] for i, e in enumerate(expand_sizes)], [])
+    command_lines_compress = sum([["--once", "compress", str((i+1)*packets_per_modify), str(e)] for i, e in enumerate(reversed(expand_sizes))], [])
+    command_countmin = [
+        "--type", "dynamic",
+        "--width", str(sketch_width),
+        "--depth", str(sketch_depth),
+        "--repeat", "log_average_relative_error", str(packets_per_log),
+        "--repeat", "log_memory_usage", str(packets_per_log)
+    ] + command_lines_expand + command_lines_compress
+
+    command_geometric = [
+        "--type", "cellsketch",
+        "--width", str(sketch_width),
+        "--depth", str(sketch_depth),
+        "--branching_factor", str(B),
+        "--repeat", "log_average_relative_error", str(packets_per_log),
+        "--repeat", "log_memory_usage", str(packets_per_log)
+    ] + command_lines_expand + command_lines_compress
+    result_cellsketch = execute_command(
+        command_geometric
+    )
+    y_mae = np.array(
+        result_cellsketch['log_average_relative_error'].to_numpy())
+    y_mem = np.array(result_cellsketch['memory_usage'].to_numpy())
+    x = np.array(result_cellsketch.index.to_numpy())
+    ax0.plot(x, y_mem, label=f'GS', marker='^')
+    ax1.plot(x, y_mae, label=f'GS', marker='^')
+
+    result_countmin = execute_command(command_countmin)
+    y_mae = np.array(
+        result_countmin['log_average_relative_error'].to_numpy())
+    y_mem = np.array(result_countmin['memory_usage'].to_numpy())
+    x = np.array(result_countmin.index.to_numpy())
+    ax0.plot(x, y_mem, label=f"DCMS", marker='D')
+    ax1.plot(x, y_mae, label=f"DCMS", marker='D')
+
+    ax0.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
+    ax1.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
+    ax0.grid()
+    ax0.set_ylabel('Memory Usage (Bytes)')
+    ax0.set_xlabel('Packets Count')
+    ax1.grid()
+    ax1.set_ylabel('ARE')
+    ax1.set_xlabel('Packets Count')
+    ax0.legend()
+    ax1.legend()
+    plt.show()
+
+def plot_gs_derivative(B: int, L: int, count_expand: int, count_log: int):
+    sketch_width = 500
+    sketch_depth = 5
+    packets_per_log = COUNT_PACKETS // count_log
+    packets_per_expand = COUNT_PACKETS // count_expand
+
+    fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
+
+    ax0.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
+    ax1.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
+
+    ax0.grid()
+    ax0.set_ylabel('Memory Usage (Bytes)')
+    ax0.set_xlabel('Packets Count')
+    ax1.grid()
+    ax1.set_ylabel("ARE'")
+    ax1.set_xlabel('Packets Count')
+    markers = ["D", "s", "^", "*", "X"]
+
+
+    N = sketch_width * (B**L-1) / (B-1)
+    expand_functions = [
+        lambda x: N * x**3,
+        lambda x: N * log2(x+1),
+        lambda x: N * (2**x-1)
+    ]
+
+    for i, expand_function in enumerate(expand_functions):
+        command = [
+            "--type", "cellsketch",
+            "--width", str(sketch_width),
+            "--depth", str(sketch_depth),
+            "--branching_factor", str(B),
+            "--repeat", "log_average_relative_error", str(packets_per_log),
+            "--repeat", "log_memory_usage", str(packets_per_log)]
+        expands = []
+        for expand_index in range(1, count_expand):
+            packet_index = expand_index*packets_per_expand
+            expand_size = expand_function(expand_index/count_expand) - sum(expands)
+            expands.append(expand_size)
+            command += ["--once", "expand", str(packet_index), str(expand_size)]
+            command += ["--once", "compress", str(packet_index), str(expand_size//B)]
+        result_cellsketch = execute_command(command)
+        y_mae = np.array(
+            result_cellsketch['log_average_relative_error'].to_numpy())
+        y_mem = np.array(result_cellsketch['memory_usage'].to_numpy())
+        d_mae = np.gradient(y_mae, packets_per_log)
+        x = np.array(result_cellsketch.index.to_numpy())
+        ax0.plot(x, y_mem, label=f"f-{i}", marker=markers[i])
+        ax1.plot(x, d_mae, label=f"f-{i}", marker=markers[i])
+    ax0.legend()
+    ax1.legend()
+    plt.show()
+
+
 if __name__ == "__main__":
     # plot_predict_distribution()
     # plot_mae_dynamic_and_elastic(128, 8, 8)
     # plot_mae_elastic_shrink(3, 128)
     # plot_mae_dynamic_and_countmin(3, 128)
     # plot_ip_distribution()
+    # plot_ip_distribution_zipfian()
     # plot_dynamic_sketches_loads(16, 8)
     # plot_dynamic_sketches_count(16)
     # plot_operations_per_second(64)
     # plot_mae_countmin_and_countsketch()
     # plot_mae_countmin_and_linked_cell()
     # plot_mae_dynamic_and_linked_cell(4, 128)
-    plot_mae_cellsketch_expand(8, 128)
+    # plot_mae_cellsketch_expand(2, 128)
+
+    # plot_branching_factor([2,4,8], 16)
+    # plot_gs_cms_comparison(2, 3, 16)
+    # plot_gs_derivative(2,3,128,16)
+    plot_gs_dynamic_compression_comparison(2, 5, 16)
