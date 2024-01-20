@@ -12,9 +12,11 @@ public:
 	void update(uint32_t key, int amount);
 	int query(uint32_t item);
 
-	void expand(int width);
-	void shrink(int bytes);
+	int expand(int width);
+	int shrink(int n);
 
     int getSize() const;
     int getMemoryUsage() const; // minimum
+private:
+	void mergeCountMin(CM_type* cm0, CM_type* cm1);
 };

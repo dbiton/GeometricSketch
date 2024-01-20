@@ -95,13 +95,16 @@ Dictionary *createDictionary(std::string type)
 	{
 		return new LinkedCellSketch(CM_WIDTH, CM_DEPTH, BRANCHING_FACTOR);
 	}
+    else if (type == "dynamic"){
+        return new DynamicSketch(CM_WIDTH, CM_DEPTH);
+    }
 	else
 	{
 		throw std::invalid_argument("--type=" + type + "?");
 	}
 }
 
-double calculateMeanAbsoluteError(Dictionary *dictionary, const std::vector<uint32_t> &packets, int packet_index)
+double calculateAverageAbsoluteError(Dictionary *dictionary, const std::vector<uint32_t> &packets, int packet_index)
 {
 	if (packet_index == 0)
 		return 0;
@@ -122,6 +125,29 @@ double calculateMeanAbsoluteError(Dictionary *dictionary, const std::vector<uint
 	}
 	return delta / hashtable.size();
 }
+
+double calculateAverageRelativeError(Dictionary *dictionary, const std::vector<uint32_t> &packets, int packet_index)
+{
+	if (packet_index == 0)
+	return 0;
+	std::unordered_map<uint32_t, int> hashtable;
+	for (int i = 0; i < packet_index; i++)
+	{
+		hashtable[packets[i]] += 1;
+	}
+
+	double total_re = 0.0;
+	for (auto const &packet_count_pair : hashtable)
+	{
+		uint32_t packet = packet_count_pair.first;
+		int count = packet_count_pair.second;
+		int dictionary_estimate = dictionary->query(packet);
+		double re = std::abs(dictionary_estimate - count) / count;
+		total_re += re;
+	}
+	return total_re / hashtable.size();
+}
+
 
 double calculateMeanSquaredError(Dictionary *dictionary, const std::vector<uint32_t> &packets, int packet_index)
 {
@@ -157,22 +183,19 @@ void doPendingActions(Dictionary *dictionary, const std::vector<uint32_t> &packe
 	auto it = action_timers.begin();
 	while (it != action_timers.end())
 	{
-		auto action_timer = *it;
+        bool deleted = false;
+        auto action_timer = *it;
 		if (packet_index % action_timer.packets_per_action == 0 && packet_index > 0)
-		{
-			
-			if (!action_timer.is_repeat){
-				action_timers.erase(it++);
-			}
-			else{
-				it++;
-			}
-			
+		{			
 			std::string action_name = action_timer.action_name;
 			if (action_name == "expand")
 			{
 				dictionary->expand(action_timer.argument);
 			}
+            else if (action_name == "compress")
+            {
+                dictionary->compress(action_timer.argument);
+            }
 			else if (action_name == "shrink")
 			{
 				dictionary->shrink(action_timer.argument);
@@ -181,15 +204,19 @@ void doPendingActions(Dictionary *dictionary, const std::vector<uint32_t> &packe
 			{
 				std::cout << "{\"memory_usage\":" << dictionary->getMemoryUsage() << ",\"index\":" << packet_index << "}," << std::endl;
 			}
+			else if (action_name == "log_average_relative_error"){
+				double error = calculateAverageRelativeError(dictionary, packets, packet_index);
+				std::cout << "{\"log_average_relative_error\":" << error << ",\"index\":" << packet_index << "}," << std::endl;
+			}
 			else if (action_name == "log_mean_squared_error")
 			{
 				double error = calculateMeanSquaredError(dictionary, packets, packet_index);
 				std::cout << "{\"log_mean_squared_error\":" << error << ",\"index\":" << packet_index << "}," << std::endl;
 			}
-			else if (action_name == "log_mean_absolute_error")
+			else if (action_name == "log_average_absolute_error")
 			{
-				double error = calculateMeanAbsoluteError(dictionary, packets, packet_index);
-				std::cout << "{\"log_mean_absolute_error\":" << error << ",\"index\":" << packet_index << "}," << std::endl;
+				double error = calculateAverageAbsoluteError(dictionary, packets, packet_index);
+				std::cout << "{\"log_average_absolute_error\":" << error << ",\"index\":" << packet_index << "}," << std::endl;
 			}
 			else if (action_name == "log_size")
 			{
@@ -225,15 +252,19 @@ void doPendingActions(Dictionary *dictionary, const std::vector<uint32_t> &packe
 			{
 				throw std::invalid_argument(action_name + "?");
 			}
-		}
+            if (!action_timer.is_repeat){
+                deleted = true;
+                it = action_timers.erase(it);
+            }
+        }
+        if (!deleted){
+            it++;
+        }
 	}
 }
 
 void run(Dictionary *dictionary, const std::vector<uint32_t> &packets, std::vector<ActionTimer> action_timers)
 {
-	// std::cout << "{\"memory_usage\":" << dictionary->getMemoryUsage() << ",\"index\":" << 0 << "}" << std::endl;
-	// std::cout << "{\"log_mean_squared_error\":" << 0 << ",\"index\":" << 0 << "}" << std::endl;
-	// std::cout << "{\"log_size\":" << 1 << ",\"index\":" << 0 << "}" << std::endl;
 	std::cout << "[" << std::endl;
 	for (int i = 0; i < packets.size(); i++)
 	{
@@ -303,7 +334,7 @@ void proccess_input(int argc, const char *argv[])
 			std::string action_name = argv[++i];
 			int packets_per_action = stoi(argv[++i]);
 			ActionTimer action_timer = ActionTimer(action_name, packets_per_action, is_repeat);
-			if (action_name == "expand" || action_name == "shrink")
+            if (action_name == "expand" || action_name == "shrink" | action_name == "compress")
 			{
 				int _argument = stoi(argv[++i]);
 				action_timer.argument = _argument;
@@ -329,8 +360,8 @@ void proccess_input(int argc, const char *argv[])
 
 void manual_argument()
 {
-	std::string cmd = "--limit_file /home/dbiton/Desktop/Projects/DynamicSketch/pcaps/capture.txt 1000000 --type cellsketch --width 500 --depth 5 --branching_factor 4 --repeat expand 250000 500 --repeat shrink 250000 500 --repeat log_mean_absolute_error 31250 --repeat log_memory_usage 31250";
-	std::vector<const char *> args;
+    std::string cmd = "--limit_file ..\\pcaps\\capture.txt 1000000 --type cellsketch --width 500 --depth 5 --branching_factor 2 --repeat expand 333 1 --repeat log_average_absolute_error 62500 --once log_memory_usage 1 --once log_average_absolute_error 1 --repeat log_memory_usage 62500 --repeat compress 333 1000000";
+    std::vector<const char *> args;
 	std::istringstream iss(cmd);
 
 	args.push_back("");
@@ -352,6 +383,6 @@ void manual_argument()
 
 int main(int argc, const char *argv[])
 {
-	// manual_argument();
-	proccess_input(argc, argv);
+    //manual_argument();
+    proccess_input(argc, argv);
 }

@@ -17,10 +17,11 @@ public:
     virtual void update(uint32_t key, int amount) = 0;
     virtual int query(uint32_t key) = 0;
 
-    virtual void expand(int bytes) = 0;
-    virtual void shrink(int bytes) = 0;
-    virtual int getSize() const = 0;
-    virtual int getMemoryUsage() const = 0;
+    virtual int compress(int bytes);
+    virtual int expand(int bytes);
+    virtual int shrink(int bytes);
+    virtual int getSize() const;
+    virtual int getMemoryUsage() const;
 };
 
 class ElasticDictionary: public Dictionary
@@ -35,9 +36,7 @@ public:
     void update(uint32_t key, int amount);
     int query(uint32_t key);
 
-    void expand(int bytes);
-    void shrink(int ratio);
-    int getSize() const;
+    int shrink(int bytes);
     int getMemoryUsage() const;
 };
 
@@ -52,8 +51,5 @@ public:
     void update(uint32_t key, int amount);
     int query(uint32_t key);
 
-    void expand(int bytes);
-    void shrink(int bytes);
-    int getSize() const;
     int getMemoryUsage() const; // minimum
 };

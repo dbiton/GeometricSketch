@@ -3,6 +3,29 @@
 
 Dictionary::Dictionary() {}
 
+int Dictionary::compress(int bytes){
+    throw std::runtime_error("Dictionary::compress - not implemented.");
+}
+
+int Dictionary::expand(int bytes)
+{
+    throw std::runtime_error("Dictionary::expand - not implemented.");
+}
+
+int Dictionary::shrink(int bytes)
+{
+    throw std::runtime_error("Dictionary::shrink - not implemented.");
+}
+
+int Dictionary::getSize() const
+{
+    throw std::runtime_error("Dictionary::getSize - not implemented.");
+}
+
+int Dictionary::getMemoryUsage() const {
+    throw std::runtime_error("Dictionary::getMemoryUsage - not implemented.");
+}
+
 Dictionary::~Dictionary() {}
 
 CountMinDictionary::CountMinDictionary(int width, int depth, int seed) : Dictionary()
@@ -20,20 +43,6 @@ void CountMinDictionary::update(uint32_t key, int amount)
 int CountMinDictionary::query(uint32_t key)
 {
     return CM_PointEst(this->count_min, key);
-}
-
-void CountMinDictionary::expand(int bytes)
-{
-    throw std::runtime_error("CountMinDictionary::expand - should not be used.");
-}
-
-void CountMinDictionary::shrink(int bytes)
-{
-    throw std::runtime_error("CountMinDictionary::shrink - should not be used.");
-}
-int CountMinDictionary::getSize() const
-{
-    throw std::runtime_error("CountMinDictionary::getSize - should not be used.");
 }
 
 int CountMinDictionary::getMemoryUsage() const
@@ -61,20 +70,14 @@ int ElasticDictionary::query(uint32_t key)
     return p->query((uint8_t *)&key);
 }
 
-void ElasticDictionary::expand(int bytes)
-{
-    throw std::runtime_error("ElasticDictionary::expand - should not be used.");
-}
-void ElasticDictionary::shrink(int ratio)
+
+int ElasticDictionary::shrink(int ratio)
 {
     auto p = static_cast<ElasticSketch*>(elastic_sketch);
     p->compress_self(ratio);
+    return ratio;
 }
 
-int ElasticDictionary::getSize() const
-{
-    throw std::runtime_error("ElasticDictionary::getSize - should not be used.");
-}
 int ElasticDictionary::getMemoryUsage() const {
     return total_memory_in_bytes;
 }

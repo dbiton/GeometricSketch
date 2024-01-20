@@ -1,8 +1,10 @@
 #include "DynamicSketch.h"
 
+int sketch_seed = 0xDEADBEEF;
+
 DynamicSketch::DynamicSketch(int width, int depth) : Dictionary()
 {
-	sketches.push_back(CM_Init(width, depth, rand()));
+    sketches.push_back(CM_Init(width, depth, sketch_seed));
 }
 
 void DynamicSketch::update(uint32_t item, int f)
@@ -20,21 +22,51 @@ int DynamicSketch::query(uint32_t item)
 	}
 	return estimate;
 }
-void DynamicSketch::expand(int width)
+
+int DynamicSketch::expand(int width)
 {
 	int depth = sketches.back()->depth;
 	int prev_width = sketches.back()->width;
 	assert(width > prev_width);
 	sketches.push_back(CM_Init(width, depth, rand()));
+    return width;
 }
 
 int DynamicSketch::getSize() const{
     return sketches.size();
 }
 
-void DynamicSketch::shrink(int bytes)
+void DynamicSketch::mergeCountMin(CM_type* cm0, CM_type* cm1){
+    int width0 = cm0->width;
+    int width1 = cm1->width;
+    double factor = (double)width1 / (double)width0;
+    int depth = cm0->depth;
+    for (int row=0; row < depth; row++){
+        for (int col0=0; col0<width0; col0++){
+            int col1_begin =  std::floor(factor * col0);
+            for (int col1 = col1_begin; col1 < factor + col1_begin; col1++){
+                cm0->counts[row][col0] += cm1->counts[row][col1];
+            }
+        }
+    }
+}
+
+
+int DynamicSketch::shrink(int n)
 {
-	throw std::runtime_error("DynamicSketch::shrink not allowed");
+    int bytes_removed = 0;
+    int sketchCount = getSize();
+    if (sketchCount > 1){
+        auto sketch_large = sketches.back();
+        auto sketch_small = sketches[sketchCount-2];
+        if (sketch_large->width <= n) {
+            bytes_removed = sketch_large->width;
+            mergeCountMin(sketch_small, sketch_large);
+            delete sketch_large;
+            sketches.pop_back();
+        }
+    }
+    return bytes_removed;
 }
 
 int DynamicSketch::getMemoryUsage() const

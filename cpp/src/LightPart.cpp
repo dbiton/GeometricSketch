@@ -1,4 +1,5 @@
 #include "LightPart.h"
+#include <cassert>
 
 
 LightPart::LightPart(int init_mem_in_bytes, int seed):
@@ -152,7 +153,8 @@ void LightPart::get_entropy(int &tot, double &entr)
 
 void LightPart::get_distribution(vector<double> &dist) 
 {
-    uint32_t tmp_counters[counter_num];
+    assert(false);
+    /*uint32_t tmp_counters[counter_num];
     for (int i = 0; i < counter_num; i++)
         tmp_counters[i] = counters[i];
 
@@ -170,7 +172,7 @@ void LightPart::get_distribution(vector<double> &dist)
     em_fsd_algo->next_epoch();
     em_fsd_algo->next_epoch();
 
-    dist = em_fsd_algo->ns;
+    dist = em_fsd_algo->ns;*/
 }
 
 
