@@ -17,6 +17,7 @@ public:
     virtual void update(uint32_t key, int amount) = 0;
     virtual int query(uint32_t key) = 0;
 
+    void compress(int bytes);
     virtual void expand(int bytes) = 0;
     virtual void shrink(int bytes) = 0;
     virtual int getSize() const = 0;

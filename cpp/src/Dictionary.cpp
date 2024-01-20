@@ -3,6 +3,8 @@
 
 Dictionary::Dictionary() {}
 
+void Dictionary::compress(int bytes){}
+
 Dictionary::~Dictionary() {}
 
 CountMinDictionary::CountMinDictionary(int width, int depth, int seed) : Dictionary()

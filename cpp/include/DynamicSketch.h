@@ -13,8 +13,11 @@ public:
 	int query(uint32_t item);
 
 	void expand(int width);
-	void shrink(int bytes);
+	void shrink(int n);
+	void compress(int n);
 
     int getSize() const;
     int getMemoryUsage() const; // minimum
+private:
+	void mergeCountMin(CM_type* cm0, CM_type* cm1);
 };
