@@ -6,14 +6,20 @@ import subprocess as sp
 import json
 import pandas as pd
 from collections import Counter
+import os
+from numpy import log10
 from scipy.optimize import curve_fit
 from scipy.special import zetac
 
-filepath_packets = "/home/dbiton/Desktop/Projects/DynamicSketch/pcaps/capture.txt"
-filepath_executable = "/home/dbiton/Desktop/Projects/DynamicSketch/cpp/build-DynamicSketch-Desktop-Debug/DynamicSketch"
+if os.name == 'nt':
+    filepath_packets = '..\\pcaps\\capture.txt'
+    filepath_executable = "..\\cpp\\x64\\Release\\DynamicSketch.exe"
+else:
+    filepath_packets = '../pcaps/capture.txt'
+    filepath_executable = "../cpp/x64/Release/DynamicSketch.exe"
 
-COUNT_PACKETS_MAX = 32000000
-COUNT_PACKETS = min(1000, COUNT_PACKETS_MAX)
+COUNT_PACKETS_MAX = 33000000
+COUNT_PACKETS = min(33000000, COUNT_PACKETS_MAX)
 
 
 def execute_command(arguments: list):
@@ -27,7 +33,7 @@ def execute_command(arguments: list):
             f"command: {' '.join(command)} caused error: {result.stderr}")
     raw_output = result.stdout.replace("\n", "").replace("\t", "")[:-2] + ']'
     output_dict = json.loads(raw_output)
-    output_df = pd.DataFrame(output_dict).groupby('index').mean().ffill()
+    output_df = pd.DataFrame(output_dict).groupby('index').mean()
     return output_df
 
 
@@ -36,18 +42,60 @@ def get_packets(filepath_packets: str):
     return np.array([int(ip) for ip in file_packets.readlines()])
 
 
-def zipfian(x, a, b):
-    return ((x+b)**(-a))
+def zipfian(x):
+    return 10 ** (-x+5.5)
 
+def plot_update_query_throughput(B: int, L: int):
+    sketch_width = 500
+    sketch_depth = 5
+
+    fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
+    count_log_time = 16
+    count_query = 64
+    packets_per_log_time = COUNT_PACKETS // count_log_time
+    packets_per_query = COUNT_PACKETS // count_query
+    throughputs_update = np.zeros((L, B-2))
+    throughputs_query = np.zeros((L, B-2))
+    for l in range(L):
+        for b in range(2, B):
+            expand_size = sketch_width * ((b**(l+1)-1)/(b-1)) - sketch_width
+            result = execute_command([
+                "--type", "cellsketch",
+                "--width", str(sketch_width),
+                "--depth", str(sketch_depth),
+                "--branching_factor", str(b),
+                "--once", "expand", "1", str(expand_size),
+                "--repeat", "log_update_time", str(packets_per_log_time),
+                "--repeat", "log_query_time", str(packets_per_log_time),
+                "--repeat", "log_average_relative_error", str(packets_per_query)])
+
+            time_per_update = np.array(result['log_update_time'].dropna().to_numpy()).mean()
+            time_per_query = np.array(result['log_query_time'].dropna().to_numpy()).mean()
+            throughputs_update[l, b-2] = round(1 / time_per_update)
+            throughputs_query[l, b-2] = round(1 / time_per_query)
+
+    ax0.imshow(throughputs_update, origin='lower', extent=[2,B,0,L])
+    ax1.imshow(throughputs_query, origin='lower', extent=[2,B,0,L])
+
+    for (throughputs, ax) in [(throughputs_update, ax0), (throughputs_query, ax1)]:
+        for (j, i), label in np.ndenumerate(throughputs):
+            ax.text(i+2.5, j+0.5, int(label), ha='center', va='center')
+
+    ax0.set_title('update')
+    ax0.set_xlabel('Branching Factor')
+    ax0.set_ylabel('Layers')
+    ax1.set_title('query')
+    ax1.set_xlabel('Branching Factor')
+    ax1.set_ylabel('Layers')
+    plt.show()
 
 def plot_ip_distribution():
     fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
-    ax0.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
     ax1.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
     
     packets = get_packets(filepath_packets)
     uint32_max = 0xffffffff
-    bin_count = 256
+    bin_count = 64
     bins = np.arange(0, uint32_max, uint32_max / bin_count)
     counts, bins = np.histogram(packets, bins=bins)
     ax1.set_ylabel('frequency')
@@ -55,13 +103,16 @@ def plot_ip_distribution():
     ax1.stairs(counts, bins)
 
     counter = Counter(packets)
-    frequency = sorted(list(counter.values()), key=lambda x: -x)
+    frequency = np.array(sorted(list(counter.values()), key=lambda x: -x))
     rank = np.arange(1, len(frequency)+1)
     ax0.plot(rank, frequency)
+    ax0.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
+    ax0.grid()
     ax0.set_yscale('log')
     ax0.set_xscale('log')
     ax0.set_xlabel('frequency rank')
     ax0.set_ylabel('frequency')
+    #ax0.plot(rank, zipfian(rank), label='10^(5.5-r)')
 
     plt.show()
 
@@ -97,8 +148,7 @@ def plot_mae_cellsketch_expand(count_sketch: int, count_log: int):
     y_count_min = np.array(
         result_count_min['log_mean_absolute_error'].to_numpy())
     x_count_max = np.array(result_count_max.index.to_numpy())
-    y_count_max = np.array(
-        result_count_max['log_mean_absolute_error'].to_numpy())
+    y_count_max = np.array(result_count_max['log_mean_absolute_error'].to_numpy())
     plt.figure(num="mae_dynamic_countmin")
     plt.plot(x_dynamic, y_dynamic, label="dynamic")
     plt.plot(x_count_min, y_count_min, label="min")
@@ -466,6 +516,75 @@ def plot_gs_cms_comparison(B: int, L: int, count_log: int):
     ax1.legend()
     plt.show()
 
+def plot_gs_cms_derivative_comparison(B: int, L: int, count_log: int):
+    sketch_width = 500
+    sketch_depth = 5
+    packets_per_log = COUNT_PACKETS // count_log
+    counters_added_per_row = sketch_width * (B**L-1) / (B-1) - sketch_width
+    packets_per_expand = floor(COUNT_PACKETS / counters_added_per_row)
+
+    fig, (ax0, ax1, ax2) = plt.subplots(1, 3, figsize=(8, 4))
+
+    markers = ["D", "s", "^", "*", "p"]
+    for l in range(L):
+        cm_width = sketch_width * B**l
+        result_countmin = execute_command([
+            "--type", "countmin",
+            "--width", str(cm_width),
+            "--depth", str(sketch_depth),
+            "--repeat", "log_average_relative_error", str(packets_per_log),
+            "--repeat", "log_memory_usage", str(packets_per_log),
+            "--once", "log_memory_usage", "1",
+            "--once", "log_average_relative_error", "1",
+            "--once", "log_memory_usage", str(COUNT_PACKETS-1),
+            "--once", "log_average_relative_error", str(COUNT_PACKETS-1)
+        ])
+        y_mae = result_countmin['log_average_relative_error'].dropna().to_numpy()
+        y_mem = result_countmin['memory_usage'].dropna().to_numpy()
+        d_mae = np.gradient(y_mae, packets_per_log)
+        x = result_countmin.index.to_numpy()
+        ax0.plot(x, y_mem, label=f"CMS-{l}", marker=markers[l])
+        ax1.plot(x, y_mae, label=f"CMS-{l}", marker=markers[l])
+        ax2.plot(x, d_mae, label=f"CMS-{l}", marker=markers[l])
+
+    ax0.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
+    ax1.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
+    ax2.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
+    ax0.grid()
+    ax0.set_ylabel('Memory Usage (Bytes)')
+    ax0.set_xlabel('Packets Count')
+    ax1.grid()
+    ax1.set_ylabel('ARE')
+    ax1.set_xlabel('Packets Count')
+    ax2.grid()
+    ax2.set_ylabel("ARE'")
+    ax2.set_xlabel('Packets Count')
+    command = [
+        "--type", "cellsketch",
+        "--width", str(sketch_width),
+        "--depth", str(sketch_depth),
+        "--branching_factor", str(B),
+        "--repeat", "expand", str(packets_per_expand), "1",
+        "--repeat", "log_average_relative_error", str(packets_per_log),
+        "--once", "log_memory_usage", "1",
+        "--once", "log_average_relative_error", "1",
+        "--once", "log_memory_usage", str(COUNT_PACKETS - 1),
+        "--once", "log_average_relative_error", str(COUNT_PACKETS - 1),
+        "--repeat", "log_memory_usage", str(packets_per_log),
+        "--repeat", "compress", str(packets_per_expand), str(1000000)
+    ]
+    result_cellsketch = execute_command(command)
+    y_mae = result_cellsketch['log_average_relative_error'].dropna().to_numpy()
+    y_mem = result_cellsketch['memory_usage'].dropna().to_numpy()
+    d_mae = np.gradient(y_mae, packets_per_log)
+    x = result_cellsketch.index.to_numpy()
+    ax0.plot(x, y_mem, label=f'GS-{B}', marker="o")
+    ax1.plot(x, y_mae, label=f'GS-{B}', marker="o")
+    ax2.plot(x, d_mae, label=f"GS-{B}", marker="o")
+    ax1.legend()
+    fig.tight_layout()
+    plt.show()
+
 # replace with undo expand
 def plot_gs_dynamic_compression_comparison(B: int, L: int, count_log: int):
     sketch_width = 500
@@ -641,7 +760,7 @@ if __name__ == "__main__":
     # plot_mae_dynamic_and_elastic(128, 8, 8)
     # plot_mae_elastic_shrink(3, 128)
     # plot_mae_dynamic_and_countmin(3, 128)
-    # plot_ip_distribution()
+    #plot_ip_distribution()
     # plot_ip_distribution_zipfian()
     # plot_dynamic_sketches_loads(16, 8)
     # plot_dynamic_sketches_count(16)
@@ -654,4 +773,6 @@ if __name__ == "__main__":
     # plot_branching_factor([2,4,8], 16)
     # plot_gs_cms_comparison(2, 3, 16)
     # plot_gs_derivative(2,3,128,16)
-    plot_gs_dynamic_compression_comparison(2, 5, 16)
+    # plot_gs_dynamic_compression_comparison(2, 5, 16)
+    # plot_update_query_throughput(9, 7)
+    plot_gs_cms_derivative_comparison(2, 4, 16)

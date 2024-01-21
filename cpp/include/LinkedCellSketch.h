@@ -15,8 +15,8 @@ public:
     void update(uint32_t key, int amount);
     int query(uint32_t key);
 
-    void shrink(int n);
-    void expand(int n);
+    int shrink(int n);
+    int expand(int n);
     int undoExpand(int n);
     int compress(int n);
 

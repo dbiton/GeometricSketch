@@ -100,18 +100,19 @@ int LinkedCellSketch::compress(int n)
     return compress_counter;
 }
 
-void LinkedCellSketch::expand(int n)
+int LinkedCellSketch::expand(int n)
 {
     for (auto &row_ptr : rows)
     {
         auto &row = *row_ptr;
         row.resize(row.size() + n, 0);
     }
+    return n;
 }
 
-void LinkedCellSketch::shrink(int n)
+int LinkedCellSketch::shrink(int n)
 {
-    undoExpand(n);
+    return undoExpand(n);
 }
 
 int LinkedCellSketch::getSize() const
@@ -122,7 +123,7 @@ int LinkedCellSketch::getSize() const
 int LinkedCellSketch::getMemoryUsage() const
 {
     // offset, vector length for each row, vector position, vector length for rows and vector position
-    return sizeof(unsigned) * 3 + rows.size() * ((rows[0]->size() + 2) * sizeof(uint32_t));
+    return rows.size() * rows[0]->size() * sizeof(uint32_t);
 }
 
 void LinkedCellSketch::printRows() const

@@ -104,7 +104,7 @@ Dictionary *createDictionary(std::string type)
 	}
 }
 
-double calculateMeanAbsoluteError(Dictionary *dictionary, const std::vector<uint32_t> &packets, int packet_index)
+double calculateAverageAbsoluteError(Dictionary *dictionary, const std::vector<uint32_t> &packets, int packet_index)
 {
 	if (packet_index == 0)
 		return 0;
@@ -213,10 +213,10 @@ void doPendingActions(Dictionary *dictionary, const std::vector<uint32_t> &packe
 				double error = calculateMeanSquaredError(dictionary, packets, packet_index);
 				std::cout << "{\"log_mean_squared_error\":" << error << ",\"index\":" << packet_index << "}," << std::endl;
 			}
-			else if (action_name == "log_mean_absolute_error")
+			else if (action_name == "log_average_absolute_error")
 			{
-				double error = calculateMeanAbsoluteError(dictionary, packets, packet_index);
-				std::cout << "{\"log_mean_absolute_error\":" << error << ",\"index\":" << packet_index << "}," << std::endl;
+				double error = calculateAverageAbsoluteError(dictionary, packets, packet_index);
+				std::cout << "{\"log_average_absolute_error\":" << error << ",\"index\":" << packet_index << "}," << std::endl;
 			}
 			else if (action_name == "log_size")
 			{
@@ -360,7 +360,7 @@ void proccess_input(int argc, const char *argv[])
 
 void manual_argument()
 {
-    std::string cmd = "--limit_file /home/dbiton/Desktop/Projects/DynamicSketch/pcaps/capture.txt 1000 --type dynamic --width 500 --depth 5 --repeat log_average_relative_error 62 --repeat log_memory_usage 62 --once expand 100 1000 --once expand 200 2000 --once expand 300 4000 --once expand 400 8000 --once shrink 600 8000 --once shrink 700 4000 --once shrink 800 2000 --once shrink 900 1000";
+    std::string cmd = "--limit_file ..\\pcaps\\capture.txt 1000000 --type cellsketch --width 500 --depth 5 --branching_factor 2 --repeat expand 333 1 --repeat log_average_absolute_error 62500 --once log_memory_usage 1 --once log_average_absolute_error 1 --repeat log_memory_usage 62500 --repeat compress 333 1000000";
     std::vector<const char *> args;
 	std::istringstream iss(cmd);
 
@@ -383,6 +383,6 @@ void manual_argument()
 
 int main(int argc, const char *argv[])
 {
-    manual_argument();
-    //proccess_input(argc, argv);
+    //manual_argument();
+    proccess_input(argc, argv);
 }

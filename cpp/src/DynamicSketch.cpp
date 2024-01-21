@@ -22,12 +22,14 @@ int DynamicSketch::query(uint32_t item)
 	}
 	return estimate;
 }
-void DynamicSketch::expand(int width)
+
+int DynamicSketch::expand(int width)
 {
 	int depth = sketches.back()->depth;
 	int prev_width = sketches.back()->width;
 	assert(width > prev_width);
 	sketches.push_back(CM_Init(width, depth, rand()));
+    return width;
 }
 
 int DynamicSketch::getSize() const{
@@ -49,29 +51,22 @@ void DynamicSketch::mergeCountMin(CM_type* cm0, CM_type* cm1){
     }
 }
 
-void DynamicSketch::compress(int n)
-{
-    int sketchCount = getSize();
-    if (sketchCount > 1){
-        auto sketch_small = sketches[0];
-        auto sketch_large = sketches[1];
-        mergeCountMin(sketch_large, sketch_small);
-        delete sketch_small;
-        sketches.erase(sketches.begin());
-    }
-}
 
-
-void DynamicSketch::shrink(int n)
+int DynamicSketch::shrink(int n)
 {
+    int bytes_removed = 0;
     int sketchCount = getSize();
     if (sketchCount > 1){
         auto sketch_large = sketches.back();
         auto sketch_small = sketches[sketchCount-2];
-        mergeCountMin(sketch_small, sketch_large);
-        delete sketch_large;
-        sketches.pop_back();
+        if (sketch_large->width <= n) {
+            bytes_removed = sketch_large->width;
+            mergeCountMin(sketch_small, sketch_large);
+            delete sketch_large;
+            sketches.pop_back();
+        }
     }
+    return bytes_removed;
 }
 
 int DynamicSketch::getMemoryUsage() const
