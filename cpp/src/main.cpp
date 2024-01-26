@@ -185,7 +185,7 @@ void doPendingActions(Dictionary *dictionary, const std::vector<uint32_t> &packe
 	{
         bool deleted = false;
         auto action_timer = *it;
-		if (packet_index % action_timer.packets_per_action == 0 && packet_index > 0)
+        if (action_timer.packets_per_action == 0 || (packet_index > 0 && packet_index % action_timer.packets_per_action == 0))
 		{			
 			std::string action_name = action_timer.action_name;
 			if (action_name == "expand")
@@ -360,7 +360,7 @@ void proccess_input(int argc, const char *argv[])
 
 void manual_argument()
 {
-    std::string cmd = "--limit_file ..\\pcaps\\capture.txt 1000000 --type cellsketch --width 500 --depth 5 --branching_factor 2 --repeat expand 333 1 --repeat log_average_absolute_error 62500 --once log_memory_usage 1 --once log_average_absolute_error 1 --repeat log_memory_usage 62500 --repeat compress 333 1000000";
+    std::string cmd = "--limit_file ../../pcaps/capture.txt 5000 --type cellsketch --width 500 --depth 5 --branching_factor 2 --once log_memory_usage 0 --repeat log_memory_usage 1250 --once log_memory_usage 4999 --once log_average_relative_error 0 --repeat log_average_relative_error 1250 --once log_average_relative_error 4999 --once expand 1280 1000 --once expand 3840 2000";
     std::vector<const char *> args;
 	std::istringstream iss(cmd);
 
@@ -383,6 +383,6 @@ void manual_argument()
 
 int main(int argc, const char *argv[])
 {
-    //manual_argument();
-    proccess_input(argc, argv);
+    manual_argument();
+    // proccess_input(argc, argv);
 }

@@ -123,6 +123,9 @@ int LinkedCellSketch::getSize() const
 int LinkedCellSketch::getMemoryUsage() const
 {
     // offset, vector length for each row, vector position, vector length for rows and vector position
+    std::cout << std::endl;
+    printRows();
+    std::cout << std::endl;
     return rows.size() * rows[0]->size() * sizeof(uint32_t);
 }
 
@@ -133,25 +136,20 @@ void LinkedCellSketch::printRows() const
     int W = (int)width;
     for (int depth = 0; depth < rows.size(); depth++)
     {
-        std::cout << "row index:" << depth << std::endl;
-        bool stop = false;
-        int offset = 0;
-        assert(false); // doesnt consider offset
-        for (int layer_index = 0; !stop; layer_index++)
+        std::cout << std::endl << "row index:" << depth;
+        for (int layer_index = 0; getLayerFirstCounterIndex(layer_index) < R+offset; layer_index++)
         {
-            std::cout << "layer index:" << layer_index << std::endl;
+            std::cout << std::endl << "layer index:" << layer_index << ">";
             int layer_length = W * std::pow(B, layer_index);
             for (int layer_offset = 0; layer_offset < layer_length; layer_offset++)
             {
-                int counter_index = offset + layer_offset;
-                if (counter_index >= R){
-                    stop = true;
-                    break;
+                int counter_index = W*(pow(B, layer_index)-1)/(B-1) + layer_offset;
+                int counter_value = 0;
+                if (counter_index < R + offset && counter_index >= offset){
+                    counter_value = (*rows[depth])[counter_index-offset];
                 }
-                std::cout << "layer offset:" << layer_offset << ",counter index:";
-                std::cout << counter_index << ",value:" << (*rows[depth])[counter_index] << std::endl;
+                std::cout << "," << std::to_string(counter_value);
             }
-            offset += layer_length;
         }
     }
 }
