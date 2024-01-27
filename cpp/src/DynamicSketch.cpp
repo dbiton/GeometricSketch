@@ -1,10 +1,19 @@
 #include "DynamicSketch.h"
 
-int sketch_seed = 0xDEADBEEF;
+#define IS_SAME_SEED 0
+
+int get_seed(){
+    if (IS_SAME_SEED){
+        return 0xDEADBEEF;
+    }
+    else{
+        return rand();
+    }
+}
 
 DynamicSketch::DynamicSketch(int width, int depth) : Dictionary()
 {
-    sketches.push_back(CM_Init(width, depth, sketch_seed));
+    sketches.push_back(CM_Init(width, depth, get_seed()));
 }
 
 void DynamicSketch::update(uint32_t item, int f)
@@ -28,7 +37,7 @@ int DynamicSketch::expand(int width)
 	int depth = sketches.back()->depth;
 	int prev_width = sketches.back()->width;
 	assert(width > prev_width);
-	sketches.push_back(CM_Init(width, depth, rand()));
+    sketches.push_back(CM_Init(width, depth, get_seed()));
     return width;
 }
 

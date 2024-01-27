@@ -373,6 +373,7 @@ FodyWeavers.xsd
 /DynamicSketch.sln
 /build
 /cpp/build
+/pcaps
 /.vscode
 /cpp/.vscode
 /python/.vscode
