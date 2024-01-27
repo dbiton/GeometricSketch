@@ -184,7 +184,7 @@ void doPendingActions(Dictionary *dictionary, const std::vector<uint32_t> &packe
 	while (it != action_timers.end())
 	{
         bool deleted = false;
-        auto action_timer = *it;
+        const ActionTimer& action_timer = *it;
         if (action_timer.packets_per_action == 0 || (packet_index > 0 && packet_index % action_timer.packets_per_action == 0))
 		{			
 			std::string action_name = action_timer.action_name;
@@ -360,7 +360,7 @@ void proccess_input(int argc, const char *argv[])
 
 void manual_argument()
 {
-    std::string cmd = "--limit_file ../../pcaps/capture.txt 5000 --type cellsketch --width 500 --depth 5 --branching_factor 2 --once log_memory_usage 0 --repeat log_memory_usage 1250 --once log_memory_usage 4999 --once log_average_relative_error 0 --repeat log_average_relative_error 1250 --once log_average_relative_error 4999 --once expand 1280 1000 --once expand 3840 2000";
+	std::string cmd = "--limit_file ..\\pcaps\\capture.txt 1000000 --type cellsketch --width 500 --depth 5 --branching_factor 2 --once log_memory_usage 0 --repeat log_memory_usage 250000 --once log_memory_usage 999999 --once log_average_relative_error 0 --repeat log_average_relative_error 250000 --once log_average_relative_error 999999 --once expand 1280 1000 --once expand 3840 2000 --once expand 7680 3000 --once expand 12800 4000 --once expand 19200 5000 --once expand 26880 6000 --once expand 35840 7000 --once expand 46080 8000 --once expand 57600 9000 --once expand 70400 10000 --once expand 84480 11000 --once expand 99840 12000 --once expand 116480 13000 --once expand 134400 14000 --once expand 153600 15000 --once expand 174080 16000 --once expand 195840 17000 --once expand 218880 18000 --once expand 243200 19000 --once expand 268800 20000 --once expand 295680 21000 --once expand 323840 22000 --once expand 353280 23000 --once expand 384000 24000 --once expand 416000 25000 --once expand 449280 26000 --once expand 483840 27000 --once expand 519680 28000 --once expand 556800 29000 --once expand 595200 30000 --once expand 634880 31000 --once expand 675840 32000 --once expand 718080 33000 --once expand 761600 34000 --once expand 806400 35000 --once expand 852480 36000 --once expand 899840 37000 --once expand 948480 38000 --once expand 998400 39000";
     std::vector<const char *> args;
 	std::istringstream iss(cmd);
 

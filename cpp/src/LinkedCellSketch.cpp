@@ -185,9 +185,11 @@ int LinkedCellSketch::getCounterIndexFromChildIndice(const std::vector<int> &chi
     int B = (int)branching_factor;
 
     int row_index = getLayerFirstCounterIndex(L);
-    for (int i = 0; i <= L; i++)
+    int B_raised = 1;
+    for (int i = L; i >= 0; i--)
     {
-        row_index += child_indice[i] * pow(B, L - i);
+        row_index += child_indice[i] * B_raised;
+        B_raised *= B;
     }
     return row_index;
 }
@@ -197,6 +199,7 @@ int LinkedCellSketch::getLastLayerCounterIndexFromKey(uint32_t key, uint16_t row
     std::vector<int> child_indice;
     int R = rows[0]->size();
     int max_layer_index = getLayerIndexOfCounterIndex(R+offset);
+    child_indice.reserve(1+max_layer_index);
     for (int layer_index = 0; layer_index <= max_layer_index; layer_index++)
     {
         child_indice.push_back(hash(key, row_index, layer_index));
@@ -218,6 +221,7 @@ void LinkedCellSketch::getAllLayersCounterIndiceFromKey(uint32_t key, uint16_t r
     std::vector<int> child_indice;
     int R = rows[0]->size();
     int max_layer_index = getLayerIndexOfCounterIndex(R+offset);
+    child_indice.reserve(1 + max_layer_index);
     for (int layer_index = 0; layer_index < max_layer_index; layer_index++)
     {
         child_indice.push_back(hash(key, row_index, layer_index));
