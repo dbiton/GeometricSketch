@@ -16,15 +16,15 @@ if os.name == 'nt':
     filepath_executable = "..\\cpp\\x64\\Release\\DynamicSketch.exe"
 else:
     filepath_packets = '../pcaps/capture.txt'
-    filepath_executable = "../cpp/build-DynamicSketch-Desktop-Debug/DynamicSketch"
+    filepath_executable = "../cpp/build-DynamicSketch-Desktop-Release/DynamicSketch"
 
 COUNT_PACKETS_MAX = 33000000
-COUNT_PACKETS = min(33000000, COUNT_PACKETS_MAX)
+COUNT_PACKETS = min(1000000, COUNT_PACKETS_MAX)
 
 
-def execute_command(arguments: list):
+def execute_command(arguments: list, packets_path = filepath_packets):
     command = [filepath_executable, "--limit_file",
-               filepath_packets, str(COUNT_PACKETS)] + arguments
+               packets_path, str(COUNT_PACKETS)] + arguments
     print("executing:", ' '.join(command))
     result = sp.run(command, stdout=sp.PIPE,
                     stderr=sp.PIPE, universal_newlines=True)
@@ -128,6 +128,30 @@ def plot_update_query_throughput(B: int, L: int, figure_name: str):
     plt.savefig(f'figures/{figure_name}')
     plt.close(fig)
 
+
+def plot_ip_distribution_zipf(figure_name: str):
+    fig, (ax0) = plt.subplots(1, 1, figsize=(8, 4))
+    step = 0.01
+    max_a = 2.2
+    for a_float in np.arange(1.01, max_a, step):
+        a = np.round(a_float,2)
+        print("ip", a)    
+        packets = get_packets(f"../pcaps/zipf/zipf-{a}.txt")
+        counter = Counter(packets)
+        frequency = np.array(sorted(list(counter.values()), key=lambda x: -x))
+        rank = np.arange(1, len(frequency) + 1)
+        ax0.plot(rank, frequency, label=(a))
+    ax0.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
+    ax0.grid()
+    ax0.set_yscale('log')
+    ax0.set_xscale('log')
+    ax0.set_xlabel('frequency rank')
+    ax0.set_ylabel('frequency')
+    # ax0.legend()
+    # ax0.plot(rank, zipfian(rank), label='10^(5.5-r)')
+    fig.tight_layout()
+    plt.savefig(f'figures/{figure_name}')
+    plt.close(fig)
 
 def plot_ip_distribution(figure_name: str):
     fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
@@ -278,6 +302,60 @@ def plot_branching_factor(branching_factors: list, count_log: int, figure_name: 
         ax1.plot(x, y_mae, label=f'GS-B{branching_factor}', marker=markers[i])
     ax0.legend()
     ax1.legend()
+    fig.tight_layout()
+    plt.savefig(f'figures/{figure_name}')
+    plt.close(fig)
+
+def plot_gs_skew_branching_factor(Bs: list, count_log: int, figure_name: str):
+    sketch_width = 272
+    sketch_depth = 5
+    B_max = max(Bs)
+    counters_added_per_row = B_max * sketch_width
+    packets_per_expand = COUNT_PACKETS / counters_added_per_row
+    fig, ((ax0),(ax1)) = plt.subplots(1, 2, figsize=(8, 4))
+    markers = ["D", "s", "^", ">", "v", "<", "*"]
+    for i, B in enumerate(Bs):
+        step = 0.01
+        max_a = 2.2
+        y_are_cmp = []
+        y_are_uncmp = []
+        x = []
+        for a_float in np.arange(1.01, max_a, step):
+            a = np.round(a_float,2)
+            packets_path = f"/home/dbiton/Desktop/Projects/DynamicSketch/pcaps/zipf/zipf-{a}.txt"
+            packets_per_expand_compressed = packets_per_expand * (B-1) / B
+            command_for_uncompressed = [
+                "--repeat", "expand", str(round(packets_per_expand)), "1",
+            ]
+            command_for_compress = [
+                "--repeat", "expand", str(round(packets_per_expand_compressed)), "1",
+                "--repeat", "compress", str(B), str("1000000"),
+            ]
+            command_gs = [
+                "--type", "cellsketch",
+                "--width", str(sketch_width),
+                "--depth", str(sketch_depth),
+                "--branching_factor", str(B),
+                "--once", "log_average_relative_error", str(COUNT_PACKETS - 1)
+            ]
+            result_gs_uncmp = execute_command(command_gs + command_for_uncompressed, packets_path)
+            result_gs_cmp = execute_command(command_gs + command_for_compress, packets_path)
+            are_cmp = np.array(result_gs_cmp['log_average_relative_error'].to_numpy())[-1]
+            are_uncmp = np.array(result_gs_uncmp['log_average_relative_error'].to_numpy())[-1]
+            y_are_cmp.append(are_cmp)
+            y_are_uncmp.append(are_uncmp)
+            x.append(a)
+        ax0.plot(x, y_are_cmp, label=f'GS-B{B}', marker=markers[i])
+        ax1.plot(x, y_are_uncmp, label=f'GS-B{B}', marker=markers[i])
+    ax0.set_title("compressed")
+    ax1.set_title("uncompressed")
+    for ax in [ax0, ax1]:
+        ax.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
+        ax.set_yscale('log')
+        ax.grid()
+        ax.set_ylabel('ARE')
+        ax.set_xlabel('Zipfian Parameter')
+        ax.legend()
     fig.tight_layout()
     plt.savefig(f'figures/{figure_name}')
     plt.close(fig)
@@ -896,10 +974,12 @@ if __name__ == "__main__":
     # plot_gs_dcms_comparison(2, 2, 640, 32, "fig_gs_dcms_comparison_big_allocate")
     # plot_gs_cms_derivative_comparison(2, 4, 16, "fig_gs_cms_derivative")
     # plot_gs_cms_comparison(2, 3, 16, "fig_gs_cms_compare")
+    plot_ip_distribution_zipf("fig_ip_distribution_zipf")
     # plot_ip_distribution("fig_ip_distribution")
     # plot_branching_factor([2, 4, 8], 16, "fig_branching_factor")
-    plot_update_query_throughput(9, 7, "fig_throughput")
+    # plot_update_query_throughput(9, 7, "fig_throughput")
     # plot_gs_derivative(2, 3, 128, 16, "fig_gs_derivative")
     # plot_gs_undo_expand(B=2, L=3, max_cycles=3, granularity=64, count_log=64, figure_name="fig_gs_undo_expand")
     # plot_gs_cms_static_comparison(2, 4, 16, "fig_gs_cms_static_comparison")
     # plot_gs_dcms_granular_comparison(2, 2, 640, 4, 32)
+    plot_gs_skew_branching_factor([2,4,8,12,16], 16, "fig_gs_skew_branching_factor")

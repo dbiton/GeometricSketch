@@ -358,7 +358,7 @@ void proccess_input(int argc, const char *argv[])
 
 void manual_argument()
 {
-	std::string cmd = "--limit_file ..\\pcaps\\capture.txt 1000000 --type cellsketch --width 272 --depth 5 --branching_factor 8 --once expand 0 81489024.0 --repeat log_update_time 6250 --repeat log_query_time 6250 --repeat log_average_relative_error 1562";
+    std::string cmd = "--limit_file /home/dbiton/Desktop/Projects/DynamicSketch/pcaps/zipf/zipf-1.2.txt 100000 --type cellsketch --width 272 --depth 5 --branching_factor 2 --repeat expand 1 1 --once log_average_relative_error 99999";
 	std::vector<const char*> args;
 	std::istringstream iss(cmd);
 
