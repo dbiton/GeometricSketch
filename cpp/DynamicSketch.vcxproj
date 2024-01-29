@@ -43,6 +43,7 @@
     <ClCompile Include="src\ElasticSketch.cpp" />
     <ClCompile Include="src\HeavyPart.cpp" />
     <ClCompile Include="src\LightPart.cpp" />
+    <ClCompile Include="src\LinkedCellSketch.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\Murmurhash.cpp" />
     <ClCompile Include="src\NaiveSketch.cpp" />
@@ -141,6 +142,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <Profile>true</Profile>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -171,6 +173,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <Profile>true</Profile>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
