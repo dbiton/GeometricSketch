@@ -2,8 +2,8 @@ from scapy.all import *
 import socket, struct
 
 
-path_pcap = "pcaps/file.pcap"
-path_output = "pcaps/file.out"
+path_pcap = "../pcaps/capture.pcap"
+path_output = "../pcaps/capture.out"
 
 def ip2long(ip):
     """
@@ -14,9 +14,6 @@ def ip2long(ip):
 
 
 scapy_cap = PcapReader(path_pcap)
-file = open(path_output, "w")
-for p in scapy_cap:
-    if "IP" in p:
-        src = str(ip2long(p["IP"].src))
-        dst = str(ip2long(p["IP"].dst))
-        file.write(src + '\n')
+source_ips = [str(ip2long(p["IP"].src)) for p in scapy_cap if "IP" in p]
+with open(path_output, "w") as file:
+    file.write('\n'.join(source_ips))
