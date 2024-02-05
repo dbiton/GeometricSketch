@@ -11,9 +11,9 @@ def generate(n: int, a: float, max_value: int, filepath: str):
 
 
 step = 0.01
-max_a = 5.0
+max_a = 2.29
 pcap_size = 1000000
-for a in np.arange(1+step, max_a, step):
+for a in np.arange(2.2, max_a, step):
     a_rounded = np.round(a, 2)
     print("starting", a_rounded, "at", datetime.datetime.now())
     generate(pcap_size, a_rounded, 0xFFFFFFFF, f"../pcaps/zipf/zipf-{a_rounded}.txt")

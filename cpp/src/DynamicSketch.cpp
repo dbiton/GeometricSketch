@@ -1,6 +1,6 @@
 #include "DynamicSketch.h"
 
-#define IS_SAME_SEED 1
+#define IS_SAME_SEED 0
 
 int get_seed(){
     if (IS_SAME_SEED){

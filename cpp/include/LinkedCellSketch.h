@@ -25,6 +25,14 @@ public:
 private:
     int hash(uint32_t key, uint16_t row_index, uint16_t layer_index) const;
 
+    int getNextLayerCounterIndexFromKey(
+        uint32_t key,
+        uint16_t row_index,
+        int& layer_index,
+        int& layer_begin_counter_index,
+        int& last_counter_index,
+        int& B_pow_layer_index
+    ) const;
     int getLayerIndexOfCounterIndex(int counter_index) const;
     void getAllLayersCounterIndiceFromKey(uint32_t key, uint16_t row_index, std::vector<int>& counter_indice) const;
     int getCounterIndexFromChildIndice(const std::vector<int>& child_indice) const;

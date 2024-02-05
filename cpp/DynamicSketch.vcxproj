@@ -28,6 +28,7 @@
     <ClInclude Include="include\EMFSD.h" />
     <ClInclude Include="include\HeavyPart.h" />
     <ClInclude Include="include\LightPart.h" />
+    <ClInclude Include="include\LinkedCellSketch.h" />
     <ClInclude Include="include\Murmurhash.h" />
     <ClInclude Include="include\NaiveSketch.h" />
     <ClInclude Include="include\param.h" />
