@@ -1014,7 +1014,7 @@ def plot_gs_derivative(B: int, L: int, count_expand: int, count_log: int, figure
     ax2.set_xlabel('Packets Count')
     markers = ["D", "s", "^", "*", "X"]
 
-    N = sketch_width * (B ** L - 1) / (B - 1)
+    N = sketch_width * (B ** L - 1) / (B - 1) - sketch_width
     expand_functions = [
         lambda x: N * math.sqrt(x),
         lambda x: N * math.log2(x + 1),
