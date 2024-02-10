@@ -33,7 +33,7 @@ private:
         int& last_counter_index,
         int& B_pow_layer_index
     ) const;
-    int getLayerIndexOfCounterIndex(int counter_index) const;
+    size_t getLayerIndexOfCounterIndex(int counter_index) const;
     void getAllLayersCounterIndiceFromKey(uint32_t key, uint16_t row_index, std::vector<int>& counter_indice) const;
     int getCounterIndexFromChildIndice(const std::vector<int>& child_indice) const;
     int getLastLayerCounterIndexFromKey(uint32_t key, uint16_t row_index) const;
@@ -41,6 +41,5 @@ private:
     int getCounterParentIndex(int counter_index) const;
     int getCounterFirstChildIndex(int counter_index) const;
 
-    int appendRow(int depth, int cell_count);
     void printRows() const;
 };
