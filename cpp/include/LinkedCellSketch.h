@@ -24,7 +24,7 @@ public:
     int getMemoryUsage() const;
 private:
     int hash(uint32_t key, uint16_t row_index, uint16_t layer_index) const;
-
+    
     int getNextLayerCounterIndexFromKey(
         uint32_t key,
         uint16_t row_index,
@@ -34,9 +34,7 @@ private:
         int& B_pow_layer_index
     ) const;
     size_t getLayerIndexOfCounterIndex(int counter_index) const;
-    void getAllLayersCounterIndiceFromKey(uint32_t key, uint16_t row_index, std::vector<int>& counter_indice) const;
     int getCounterIndexFromChildIndice(const std::vector<int>& child_indice) const;
-    int getLastLayerCounterIndexFromKey(uint32_t key, uint16_t row_index) const;
     int getLayerFirstCounterIndex(int layer_index) const;
     int getCounterParentIndex(int counter_index) const;
     int getCounterFirstChildIndex(int counter_index) const;

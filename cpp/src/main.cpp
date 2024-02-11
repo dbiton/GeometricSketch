@@ -423,6 +423,6 @@ void manual_argument()
 
 int main(int argc, const char *argv[])
 {
-    // manual_argument();
-    proccess_input(argc, argv);
+    manual_argument();
+    // proccess_input(argc, argv);
 }

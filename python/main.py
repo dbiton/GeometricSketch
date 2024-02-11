@@ -22,7 +22,7 @@ else:
     filepath_packets = '../pcaps/capture.txt'
     filepath_executable = "../cpp/build-DynamicSketch-Desktop-Release/DynamicSketch"
 
-COUNT_PACKETS_MAX = 1000000
+COUNT_PACKETS_MAX = 100000
 COUNT_PACKETS = min(37700000, COUNT_PACKETS_MAX)
 
 
@@ -128,40 +128,40 @@ def plot_gs_update_query_throughput(B: int, L: int, figure_name: str):
     plt.savefig(f'figures/{figure_name}')
     plt.close(fig)
 
-def plot_dcms_update_query_throughput(B: int, L: int, figure_name: str):
+def plot_dcms_update_query_throughput(B: int, S: int, figure_name: str):
     sketch_width = 272
     sketch_depth = 5
 
     fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
-    throughputs_update = np.zeros((L, B - 2))
-    throughputs_query = np.zeros((L, B - 2))
-    for l in range(L):
+    throughputs_update = np.zeros((S, B - 2))
+    throughputs_query = np.zeros((S, B - 2))
+    for s in range(S):
         for b in range(2, B):
-            expand_size = sketch_width * ((b ** (l + 1) - 1) / (b - 1)) - sketch_width
-            result = execute_command([
+            command = [
                 "--type", "dynamic",
                 "--width", str(sketch_width),
                 "--depth", str(sketch_depth),
-                "--branching_factor", str(b),
-                "--once", "expand", "0", str(expand_size),
                 "--once", "log_update_time", str(COUNT_PACKETS - 1),
-                "--once", "log_query_time", str(COUNT_PACKETS - 1)])
-
+                "--once", "log_query_time", str(COUNT_PACKETS - 1)]
+            for i in range(1, s):
+                sketch_size = B ** i * sketch_width
+                command += ["--once", "expand", "0", str(sketch_size)]
+            result = execute_command(command)
             ms_per_update = np.array(result['log_update_time'].dropna().to_numpy()).mean()
-            throughputs_update[l, b - 2] = 10 / (ms_per_update * 10e3)
+            throughputs_update[s, b - 2] = 1 / (ms_per_update * 10e3)
             ms_per_query = np.array(result['log_query_time'].dropna().to_numpy()).mean()
-            throughputs_query[l, b - 2] = 10 / (ms_per_query * 10e3)
-    im0 = ax0.imshow(throughputs_update, origin='lower', extent=[2, B, 0, L])
-    im1 = ax1.imshow(throughputs_query, origin='lower', extent=[2, B, 0, L])
+            throughputs_query[s, b - 2] = 1 / (ms_per_query * 10e3)
+    im0 = ax0.imshow(throughputs_update, origin='lower', extent=[2, B, 0, S])
+    im1 = ax1.imshow(throughputs_query, origin='lower', extent=[2, B, 0, S])
 
     for (throughputs, ax) in [(throughputs_update, ax0), (throughputs_query, ax1)]:
         for (j, i), label in np.ndenumerate(throughputs):
             ax.text(i + 2.5, j + 0.5, int(label), ha='center', va='center')
 
-    ax0.set_title('DCMS Update 10*MOPS')
+    ax0.set_title('DCMS Update MOPS')
     ax0.set_xlabel('Branching Factor')
     ax0.set_ylabel('Sketches')
-    ax1.set_title('DCMS Query 10*MOPS')
+    ax1.set_title('DCMS Query MOPS')
     ax1.set_xlabel('Branching Factor')
     ax1.set_ylabel('Sketches')
     fig.tight_layout()
@@ -1105,7 +1105,7 @@ if __name__ == "__main__":
     # plot_update_query_throughput_gs
     # plot_gs_expand_undo_compress_throughput(8, 6, "fig_gs_expand_undo_compress_throughput")
     plot_gs_update_query_throughput(9, 7, "fig_gs_update_query_throughput")
-    # plot_cms_update_query_throughput(5, 8, 8, "fig_cms_throughput")
+    plot_cms_update_query_throughput(5, 8, 8, "fig_cms_throughput")
     # plot_gs_dcms_comparison(2, 2, 640, 32, "fig_gs_dcms_comparison_big_allocate")
     # plot_gs_cms_derivative_comparison(2, 4, 16, "fig_gs_cms_derivative")
     # plot_gs_cms_comparison(2, 3, 16, "fig_gs_cms_compare")
@@ -1114,7 +1114,7 @@ if __name__ == "__main__":
     # plot_ip_distribution("fig_ip_distribution")
     # plot_branching_factor([2, 4, 8], 16, "fig_branching_factor")
     # plot_gs_derivative(2, 3, 256, 16, "fig_gs_derivative")
-    # plot_dcms_update_query_throughput(6,4, "fig_dcms_update_query_throughput")
+    plot_dcms_update_query_throughput(9, 7, "fig_dcms_update_query_throughput")
     # plot_gs_undo_expand(B=2, L=3, max_cycles=4, granularity=128, count_log_memory=24, count_log_are=24, figure_name="fig_gs_undo_expand")
     # plot_gs_cms_static_comparison(2, 4, 16, "fig_gs_cms_static_comparison")
     # plot_gs_dcms_granular_comparison(2, 2, 640, 4, 32)

@@ -22,8 +22,6 @@ LinkedCellSketch::~LinkedCellSketch()
 void LinkedCellSketch::update(uint32_t key, int amount)
 {
     int R = rows[0]->size();
-    int B = (int)branching_factor;
-    int W = (int)width;
     int O = offset;
     for (int row_index = 0; row_index < rows.size(); row_index++)
     {
@@ -31,7 +29,7 @@ void LinkedCellSketch::update(uint32_t key, int amount)
         uint32_t current_estimate = 0;
         int prev_layer_index = 0;
         int prev_layer_begin_counter_index = 0;
-        int prev_counter_index = hash(key, row_index, 0) % W;
+        int prev_counter_index = hash(key, row_index, 0);
         int counter_index = prev_counter_index;
         int prev_B_pow_layer_index = 1;
         while (counter_index < R + O) {
@@ -45,11 +43,29 @@ void LinkedCellSketch::update(uint32_t key, int amount)
     }
 }
 
+int LinkedCellSketch::getNextLayerCounterIndexFromKey(
+    uint32_t key, 
+    uint16_t row_index, 
+    int& prev_layer_index, 
+    int& prev_layer_begin_counter_index, 
+    int& prev_counter_index,
+    int& prev_B_pow_layer_index
+) const{
+    int B = (int)branching_factor;
+    int W = (int)width;
+    int layer_begin_counter_index = prev_layer_begin_counter_index + W * prev_B_pow_layer_index;
+    int h = hash(key, row_index, prev_layer_index+1);
+    int counter_index = (prev_counter_index - prev_layer_begin_counter_index) * B + h + layer_begin_counter_index;
+    prev_layer_index += 1;
+    prev_layer_begin_counter_index = layer_begin_counter_index;
+    prev_counter_index = counter_index;
+    prev_B_pow_layer_index *= B;
+    return counter_index;
+}
+
 int LinkedCellSketch::query(uint32_t key)
 {
     int R = rows[0]->size();
-    int B = (int)branching_factor;
-    int W = (int)width;
     int O = offset;
     uint32_t estimate = UINT32_MAX;
     for (int row_index = 0; row_index < rows.size(); row_index++)
@@ -58,7 +74,7 @@ int LinkedCellSketch::query(uint32_t key)
         uint32_t current_estimate = 0;
         int prev_layer_index = 0;
         int prev_layer_begin_counter_index = 0;
-        int prev_counter_index = hash(key, row_index, 0) % W;
+        int prev_counter_index = hash(key, row_index, 0);
         int prev_B_pow_layer_index = 1;
         int counter_index = prev_counter_index;
         while (counter_index < R + O){
@@ -122,10 +138,7 @@ int LinkedCellSketch::undoExpand(int n)
 
 int LinkedCellSketch::compress(int n)
 {
-    size_t R = rows[0]->size();
-    size_t B = branching_factor;
     size_t O = offset;
-    size_t W = width;
     int compress_counter = 0;
     for (auto &row_ptr : rows)
     {
@@ -206,8 +219,6 @@ int LinkedCellSketch::hash(uint32_t key, uint16_t row_index, uint16_t layer_inde
 {
     uint32_t seed = ((uint32_t)row_index << 16) + (uint32_t)layer_index;
     auto h = murmurhash((int *)&key, seed);
-    h &= 0x3FF; // USE LOWEST 10 BITS
-    // use 16 bit hash and replace % with something else
     return layer_index == 0 ? h % width : h % branching_factor;
 }
 
@@ -249,74 +260,6 @@ int LinkedCellSketch::getCounterIndexFromChildIndice(const std::vector<int> &chi
         B_raised *= B;
     }
     return row_index;
-}
-
-
-int LinkedCellSketch::getLastLayerCounterIndexFromKey(uint32_t key, uint16_t row_index) const
-{
-    std::vector<int> child_indice;
-    int R = rows[0]->size();
-    size_t max_layer_index = getLayerIndexOfCounterIndex(R+offset);
-    child_indice.reserve(max_layer_index+1);
-    for (int layer_index = 0; layer_index <= max_layer_index; layer_index++)
-    {
-        child_indice.push_back(hash(key, row_index, layer_index));
-    }
-    int last_layer_counter_index = getCounterIndexFromChildIndice(child_indice);
-    if (last_layer_counter_index - offset >= R)
-    {
-        child_indice.pop_back();
-        int counter_index = getCounterIndexFromChildIndice(child_indice);
-        return counter_index;
-    }
-
-    return last_layer_counter_index;
-}
-
-
-int LinkedCellSketch::getNextLayerCounterIndexFromKey(
-    uint32_t key, 
-    uint16_t row_index, 
-    int& prev_layer_index, 
-    int& prev_layer_begin_counter_index, 
-    int& prev_counter_index,
-    int& prev_B_pow_layer_index
-) const{
-    int B = (int)branching_factor;
-    int W = (int)width;
-    int layer_begin_counter_index = prev_layer_begin_counter_index + W * prev_B_pow_layer_index;
-    int h = hash(key, row_index, prev_layer_index+1);
-    int counter_index = (prev_counter_index - prev_layer_begin_counter_index) * B + h + layer_begin_counter_index;
-    prev_layer_index += 1;
-    prev_layer_begin_counter_index = layer_begin_counter_index;
-    prev_counter_index = counter_index;
-    prev_B_pow_layer_index *= B;
-    return counter_index;
-}
-
-void LinkedCellSketch::getAllLayersCounterIndiceFromKey(uint32_t key, uint16_t row_index, std::vector<int> &counter_indice) const
-{
-    counter_indice.clear();
-    std::vector<int> child_indice;
-    int R = rows[0]->size();
-    size_t max_layer_index = getLayerIndexOfCounterIndex(R+offset);
-    child_indice.reserve(1 + max_layer_index);
-    counter_indice.reserve(1 + max_layer_index);
-    for (int layer_index = 0; layer_index < max_layer_index; layer_index++)
-    {
-        int h = hash(key, row_index, layer_index);
-        child_indice.push_back(h);
-        int counter_index = getCounterIndexFromChildIndice(child_indice);
-        if (counter_index - offset >= 0){
-            counter_indice.push_back(counter_index);
-        }
-    }
-    child_indice.push_back(hash(key, row_index, max_layer_index));
-    int counter_index = getCounterIndexFromChildIndice(child_indice);
-    if (counter_index - offset < R)
-    {
-        counter_indice.push_back(counter_index);
-    }
 }
 
 int LinkedCellSketch::getCounterParentIndex(int counter_index) const

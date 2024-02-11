@@ -7,7 +7,7 @@ project(
 
 include_directories(include)
 
-add_executable(DynamicSketch 
+add_executable(DynamicSketch
     src/BOBHash32.cpp
     src/countmin.cc
     src/DynamicSketch.cpp
