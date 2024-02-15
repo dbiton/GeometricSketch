@@ -50,6 +50,8 @@
     <ClCompile Include="src\NaiveSketch.cpp" />
     <ClCompile Include="src\prng.cc" />
     <ClCompile Include="src\rand48.cc" />
+    <ClCompile Include="src\xxhash.c" />
+    <ClCompile Include="src\xxh_x86dispatch.c" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

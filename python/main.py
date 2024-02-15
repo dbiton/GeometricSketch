@@ -22,7 +22,7 @@ else:
     filepath_packets = '../pcaps/capture.txt'
     filepath_executable = "../cpp/build-DynamicSketch-Desktop-Release/DynamicSketch"
 
-COUNT_PACKETS_MAX = 100000
+COUNT_PACKETS_MAX = 37700000
 COUNT_PACKETS = min(37700000, COUNT_PACKETS_MAX)
 
 
@@ -46,43 +46,44 @@ def get_packets(filepath_packets: str):
     return np.array([int(ip) for ip in file_packets.readlines()])
 
 
-def plot_cms_update_query_throughput(min_width_pow: int, count_width: int, count_depth: int, figure_name: str):
+def plot_cms_update_query_throughput(count_width: int, count_depth: int, depth: int, branching_factor: int, figure_name: str):
     fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
     packets_per_log_time = COUNT_PACKETS - 1
-    throughputs_update = np.zeros((count_width, count_depth))
-    throughputs_query = np.zeros((count_width, count_depth))
+    throughputs_update = np.zeros((count_depth, count_width))
+    throughputs_query = np.zeros((count_depth, count_width))
     for D in range(1, count_depth + 1):
-        for sketch_width_pow in range(min_width_pow, min_width_pow + count_width):
-            W = 2 ** sketch_width_pow
+        for sketch_width_pow in range(0, count_width):
+            W = 272 * 2 ** sketch_width_pow
             result = execute_command([
                 "--type", "countmin",
                 "--width", str(W),
-                "--depth", str(D),
+                "--depth", str(D*depth),
                 "--repeat", "log_update_time", str(packets_per_log_time),
                 "--repeat", "log_query_time", str(packets_per_log_time)])
             ms_per_update = np.array(result['log_update_time'].dropna().to_numpy()).mean()
-            throughput_update = 1 / (ms_per_update * 10e3)
+            throughput_update = 10 / (ms_per_update * 10e3)
             ms_per_query = np.array(result['log_query_time'].dropna().to_numpy()).mean()
-            throughput_query = 1 / (ms_per_query * 10e3)
-            throughputs_update[sketch_width_pow - min_width_pow, D - 1] = throughput_update
-            throughputs_query[sketch_width_pow - min_width_pow, D - 1] = throughput_query
-            print(D, sketch_width_pow)
+            throughput_query = 10 / (ms_per_query * 10e3)
+            throughputs_update[D - 1, sketch_width_pow] = throughput_update
+            throughputs_query[D - 1, sketch_width_pow] = throughput_query
 
     im0 = ax0.imshow(throughputs_update, origin='lower',
-                     extent=[1, count_depth + 1, min_width_pow, min_width_pow + count_width])
+                     extent=[1, count_depth + 1, 0, count_width])
     im1 = ax1.imshow(throughputs_query, origin='lower',
-                     extent=[1, count_depth + 1, min_width_pow, min_width_pow + count_width])
+                     extent=[1, count_depth + 1, 0, count_width])
+    ax0.set_yticklabels([i for i in range(depth, depth * (count_depth + 2), depth)])
+    ax1.set_yticklabels([i for i in range(depth, depth * (count_depth + 2), depth)])
 
     for (throughputs, ax) in [(throughputs_update, ax0), (throughputs_query, ax1)]:
         for (j, i), label in np.ndenumerate(throughputs):
-            ax.text(i + 0.5 + 1, j + 0.5 + min_width_pow, int(label), ha='center', va='center')
+            ax.text(i + 0.5 + 1, j + 0.5, int(label), ha='center', va='center')
 
-    ax0.set_title('CMS Update MOPS')
-    ax0.set_xlabel('Depth')
-    ax0.set_ylabel('Log2(Width)')
-    ax1.set_title('CMS Query MOPS')
-    ax1.set_xlabel('Depth ')
-    ax1.set_ylabel('Log2(Width)')
+    ax0.set_title('CMS Update 10*MOPS')
+    ax0.set_ylabel('Depth')
+    ax0.set_xlabel('log2(Width/W)')
+    ax1.set_title('CMS Query 10*MOPS')
+    ax1.set_ylabel('Depth')
+    ax1.set_xlabel('log2(Width/W)')
     fig.tight_layout()
     plt.savefig(f'figures/{figure_name}')
     plt.close(fig)
@@ -133,9 +134,9 @@ def plot_dcms_update_query_throughput(B: int, S: int, figure_name: str):
     sketch_depth = 5
 
     fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
-    throughputs_update = np.zeros((S, B - 2))
-    throughputs_query = np.zeros((S, B - 2))
-    for s in range(S):
+    throughputs_update = np.zeros((S, B-2))
+    throughputs_query = np.zeros((S, B-2))
+    for s in range(1, S+1):
         for b in range(2, B):
             command = [
                 "--type", "dynamic",
@@ -143,25 +144,25 @@ def plot_dcms_update_query_throughput(B: int, S: int, figure_name: str):
                 "--depth", str(sketch_depth),
                 "--once", "log_update_time", str(COUNT_PACKETS - 1),
                 "--once", "log_query_time", str(COUNT_PACKETS - 1)]
-            for i in range(1, s):
-                sketch_size = B ** i * sketch_width
+            for i in range(s):
+                sketch_size = b ** i * sketch_width
                 command += ["--once", "expand", "0", str(sketch_size)]
             result = execute_command(command)
             ms_per_update = np.array(result['log_update_time'].dropna().to_numpy()).mean()
-            throughputs_update[s, b - 2] = 1 / (ms_per_update * 10e3)
+            throughputs_update[s - 1, b - 2] = 10 / (ms_per_update * 10e3)
             ms_per_query = np.array(result['log_query_time'].dropna().to_numpy()).mean()
-            throughputs_query[s, b - 2] = 1 / (ms_per_query * 10e3)
-    im0 = ax0.imshow(throughputs_update, origin='lower', extent=[2, B, 0, S])
-    im1 = ax1.imshow(throughputs_query, origin='lower', extent=[2, B, 0, S])
+            throughputs_query[s - 1, b - 2] = 10 / (ms_per_query * 10e3)
+    im0 = ax0.imshow(throughputs_update, origin='lower', extent=[2, B, 1, S+1])
+    im1 = ax1.imshow(throughputs_query, origin='lower', extent=[2, B, 1, S+1])
 
     for (throughputs, ax) in [(throughputs_update, ax0), (throughputs_query, ax1)]:
         for (j, i), label in np.ndenumerate(throughputs):
-            ax.text(i + 2.5, j + 0.5, int(label), ha='center', va='center')
+            ax.text(i + 2.5, j + 1.5, int(label), ha='center', va='center')
 
-    ax0.set_title('DCMS Update MOPS')
+    ax0.set_title('DCMS Update 10*MOPS')
     ax0.set_xlabel('Branching Factor')
     ax0.set_ylabel('Sketches')
-    ax1.set_title('DCMS Query MOPS')
+    ax1.set_title('DCMS Query 10*MOPS')
     ax1.set_xlabel('Branching Factor')
     ax1.set_ylabel('Sketches')
     fig.tight_layout()
@@ -1104,8 +1105,9 @@ if __name__ == "__main__":
     # plot_mae_cellsketch_expand(2, 128)
     # plot_update_query_throughput_gs
     # plot_gs_expand_undo_compress_throughput(8, 6, "fig_gs_expand_undo_compress_throughput")
+    plot_dcms_update_query_throughput(9, 7, "fig_dcms_update_query_throughput")
+    plot_cms_update_query_throughput(7, 7, 5, 2, "fig_cms_throughput")
     plot_gs_update_query_throughput(9, 7, "fig_gs_update_query_throughput")
-    plot_cms_update_query_throughput(5, 8, 8, "fig_cms_throughput")
     # plot_gs_dcms_comparison(2, 2, 640, 32, "fig_gs_dcms_comparison_big_allocate")
     # plot_gs_cms_derivative_comparison(2, 4, 16, "fig_gs_cms_derivative")
     # plot_gs_cms_comparison(2, 3, 16, "fig_gs_cms_compare")
@@ -1114,7 +1116,6 @@ if __name__ == "__main__":
     # plot_ip_distribution("fig_ip_distribution")
     # plot_branching_factor([2, 4, 8], 16, "fig_branching_factor")
     # plot_gs_derivative(2, 3, 256, 16, "fig_gs_derivative")
-    plot_dcms_update_query_throughput(9, 7, "fig_dcms_update_query_throughput")
     # plot_gs_undo_expand(B=2, L=3, max_cycles=4, granularity=128, count_log_memory=24, count_log_are=24, figure_name="fig_gs_undo_expand")
     # plot_gs_cms_static_comparison(2, 4, 16, "fig_gs_cms_static_comparison")
     # plot_gs_dcms_granular_comparison(2, 2, 640, 4, 32)

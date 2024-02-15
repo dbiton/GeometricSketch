@@ -1,9 +1,11 @@
 #include "LinkedCellSketch.h"
+#include "xxhash.h"
 
-LinkedCellSketch::LinkedCellSketch(int width, int depth, int branching_factor) : Dictionary(),
-                                                                                 branching_factor(branching_factor),
-                                                                                 offset(0),
-                                                                                 width(width)
+LinkedCellSketch::LinkedCellSketch(int width, int depth, int branching_factor) : 
+    Dictionary(),
+    branching_factor(branching_factor),
+    width(width),
+    offset(0)
 {
     for (int i = 0; i < depth; i++)
     {
@@ -218,7 +220,7 @@ void LinkedCellSketch::printRows() const
 int LinkedCellSketch::hash(uint32_t key, uint16_t row_index, uint16_t layer_index) const
 {
     uint32_t seed = ((uint32_t)row_index << 16) + (uint32_t)layer_index;
-    auto h = murmurhash((int *)&key, seed);
+    auto h = XXH32(&key, sizeof(key), seed);
     return layer_index == 0 ? h % width : h % branching_factor;
 }
 
