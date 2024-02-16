@@ -4,10 +4,11 @@
 
 class LinkedCellSketch : public Dictionary
 {
-    std::vector<std::vector<uint32_t>*> rows;
-    int offset;
+    std::vector<uint32_t> counters;
+    unsigned offset;
     unsigned branching_factor;
     unsigned width;
+    unsigned depth;
 public:
     LinkedCellSketch(int width, int depth, int branching_factor);
     ~LinkedCellSketch();
@@ -20,7 +21,6 @@ public:
     int undoExpand(int n);
     int compress(int n);
 
-    int getSize() const;
     int getMemoryUsage() const;
 private:
     int hash(uint32_t key, uint16_t row_index, uint16_t layer_index) const;
@@ -31,7 +31,9 @@ private:
         int& layer_index,
         int& layer_begin_counter_index,
         int& last_counter_index,
-        int& B_pow_layer_index
+        int& B_pow_layer_index,
+        uint32_t& mask,
+        int bits_per_subhash
     ) const;
     size_t getLayerIndexOfCounterIndex(int counter_index) const;
     int getCounterIndexFromChildIndice(const std::vector<int>& child_indice) const;
