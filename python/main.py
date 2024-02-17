@@ -484,76 +484,12 @@ def plot_gs_skew_branching_factor(Bs: list, count_log: int, figure_name: str):
     plt.close(fig)
     COUNT_PACKETS = OLD_COUNT_PACKETS
 
-
-def plot_gs_cms_comparison(B: int, L: int, count_log: int, figure_name: str):
-    sketch_width = 272
-    sketch_depth = 5
-    packets_per_log = COUNT_PACKETS // count_log
-    counters_added_per_row = sketch_width * (B ** (L - 1) - 1) / (B - 1) - sketch_width
-    packets_per_expand = COUNT_PACKETS / counters_added_per_row
-
-    fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
-
-    markers = ["D", "s", "^"]
-    for l in range(L):
-        cm_width = sketch_width * B ** l
-        result_countmin = execute_command([
-            "--type", "countmin",
-            "--width", str(cm_width),
-            "--depth", str(sketch_depth),
-            "--once", "log_average_relative_error", "0",
-            "--repeat", "log_average_relative_error", str(packets_per_log),
-            "--once", "log_average_relative_error", str(COUNT_PACKETS - 1),
-            "--once", "log_memory_usage", "0",
-            "--repeat", "log_memory_usage", str(packets_per_log),
-            "--once", "log_memory_usage", str(COUNT_PACKETS - 1)])
-        y_mae = np.array(
-            result_countmin['log_average_relative_error'].to_numpy())
-        y_mem = np.array(result_countmin['memory_usage'].to_numpy())
-        x = np.array(result_countmin.index.to_numpy())
-        ax0.plot(x, y_mem, label=f"CMS-{l}", marker=markers[l])
-        ax1.plot(x, y_mae, label=f"CMS-{l}", marker=markers[l])
-
-    ax0.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
-    ax1.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
-    ax0.grid()
-    ax0.set_ylabel('Memory Usage (Bytes)')
-    ax0.set_xlabel('Packets Count')
-    ax1.grid()
-    ax1.set_ylabel('ARE')
-    ax1.set_xlabel('Packets Count')
-    result_cellsketch = execute_command([
-        "--type", "cellsketch",
-        "--width", str(sketch_width),
-        "--depth", str(sketch_depth),
-        "--branching_factor", str(B),
-        "--repeat", "expand", str(packets_per_expand), "1",
-        #        "--repeat", "compress", str(packets_per_expand), str(1000000),
-        "--once", "log_average_relative_error", "0",
-        "--repeat", "log_average_relative_error", str(packets_per_log),
-        "--once", "log_average_relative_error", str(COUNT_PACKETS - 1),
-        "--once", "log_memory_usage", "0",
-        "--repeat", "log_memory_usage", str(packets_per_log),
-        "--once", "log_memory_usage", str(COUNT_PACKETS - 1)])
-    y_mae = np.array(
-        result_cellsketch['log_average_relative_error'].to_numpy())
-    y_mem = np.array(result_cellsketch['memory_usage'].to_numpy())
-    x = np.array(result_cellsketch.index.to_numpy())
-    ax0.plot(x, y_mem, label=f'GS-B{B}', marker='o')
-    ax1.plot(x, y_mae, label=f'GS-B{B}', marker='o')
-    ax0.legend()
-    ax1.legend()
-    fig.tight_layout()
-    plt.savefig(f'figures/{figure_name}')
-    plt.close(fig)
-
-
 def plot_gs_cms_derivative_comparison(B: int, L: int, count_log: int, figure_name: str):
     sketch_width = 272
     sketch_depth = 5
     packets_per_log = COUNT_PACKETS // count_log
-    counters_added_per_row = sketch_width * (B ** L - 1) / (B - 1) - sketch_width
-    packets_per_expand = math.floor(COUNT_PACKETS / counters_added_per_row)
+    counters_added = sketch_depth * sketch_width * (B ** L - 1) / (B - 1) - sketch_width
+    packets_per_expand = math.floor(COUNT_PACKETS / counters_added)
 
     fig, (ax0, ax1, ax2) = plt.subplots(1, 3, figsize=(8, 4))
 
@@ -691,8 +627,8 @@ def plot_gs_dcms_comparison(B: int, K: int, N: int, count_log: int, figure_name:
 
     markers = ["v", "^", ">", "<", "D", "o", '*']
     strategies = [
-        lambda j: K * j,
-        lambda j: K ** j,
+        lambda v: K * v,
+        lambda v: K ** v,
     ]
     for i, strategy in enumerate(strategies):
         command_dcms = [
@@ -720,24 +656,20 @@ def plot_gs_dcms_comparison(B: int, K: int, N: int, count_log: int, figure_name:
         ]
         j = 1
         total = 0
-        command_gs_big_alloc = command_gs.copy()
         while True:
             v = strategy(j)
             thresh = N * v
             total += thresh
             appended_sketch_width = sketch_width * v
-            appended_counters_count = appended_sketch_width * B / (B - 1)
+            appended_counters_count = sketch_depth * appended_sketch_width * B / (B - 1)
             if total >= COUNT_PACKETS:
                 break
             compress_command = ["--once", "compress", str(total), "1000000000"]
-            command_gs_big_alloc += ["--once", "expand", str(total), str(appended_sketch_width)]
             command_dcms += ["--once", "expand", str(total), str(appended_sketch_width)]
             command_gs += ["--once", "expand", str(total), str(appended_counters_count)] + compress_command
             j += 1
 
         todo = [(0, "DCMS", command_dcms), (1, "GS", command_gs)]
-        if i == 1:
-            todo.append((2, "GS*", command_gs_big_alloc))
         for args in todo:
             s, type, command = args
             result = execute_command(command)
@@ -761,18 +693,47 @@ def plot_gs_dcms_comparison(B: int, K: int, N: int, count_log: int, figure_name:
     plt.close(fig)
 
 
-def plot_gs_dcms_granular_comparison(B: int, K: int, N: int, granularity: int, count_log: int):
+def plot_gs_dcms_granular_comparison(B: int, K: int, N: int, count_log: int, figure_name: str):
     sketch_width = 272
     sketch_depth = 5
     packets_per_log = COUNT_PACKETS // count_log
 
     fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
 
-    markers = ["s", "p", "d", "D", "v", "^", ">", "<"]
+    markers = ["v", "^", ">", "<", "D", "o", '*']
     strategies = [
-        lambda j: K * j,
-        lambda j: K ** j,
+        lambda v: K * v,
+        lambda v: K ** v,
     ]
+
+    for i, is_compressed in enumerate([True, False]):
+        packets_per_expand = N / (sketch_depth * sketch_width)
+        if is_compressed:
+            packets_per_expand *= ((B-1) / B)
+
+        command_gs = [
+            "--type", "cellsketch",
+            "--width", str(sketch_width),
+            "--depth", str(sketch_depth),
+            "--branching_factor", str(B),
+            "--once", "log_memory_usage", "0",
+            "--repeat", "log_memory_usage", str(packets_per_log),
+            "--once", "log_memory_usage", str(COUNT_PACKETS - 1),
+            "--once", "log_average_relative_error", "0",
+            "--repeat", "log_average_relative_error", str(packets_per_log),
+            "--once", "log_average_relative_error", str(COUNT_PACKETS - 1),
+            "--repeat", "expand", str(packets_per_expand), "1"
+        ]
+        if is_compressed:
+            command_gs += ["--repeat", "compress", str(packets_per_expand), "1000000000"]
+
+        result = execute_command(command_gs)
+        y_mae = result['log_average_relative_error'].dropna().to_numpy()
+        y_mem = result['memory_usage'].dropna().to_numpy()
+        x = result.index.to_numpy()
+        ax0.plot(x, y_mem, label=f"GS-CMP{i}", marker=markers[-i])
+        ax1.plot(x, y_mae, label=f"GS-CMP{i}", marker=markers[-i])
+
     for i, strategy in enumerate(strategies):
         command_dcms = [
             "--type", "dynamic",
@@ -785,45 +746,25 @@ def plot_gs_dcms_granular_comparison(B: int, K: int, N: int, granularity: int, c
             "--repeat", "log_average_relative_error", str(packets_per_log),
             "--once", "log_average_relative_error", str(COUNT_PACKETS - 1)
         ]
-        command_gs = [
-            "--type", "cellsketch",
-            "--width", str(sketch_width),
-            "--depth", str(sketch_depth),
-            "--branching_factor", str(B),
-            "--once", "log_memory_usage", "0",
-            "--repeat", "log_memory_usage", str(packets_per_log),
-            "--once", "log_memory_usage", str(COUNT_PACKETS - 1),
-            "--once", "log_average_relative_error", "0",
-            "--repeat", "log_average_relative_error", str(packets_per_log),
-            "--once", "log_average_relative_error", str(COUNT_PACKETS - 1)
-        ]
+
         j = 1
         total = 0
         while True:
             v = strategy(j)
-            prev_total = total
-            total += N * v
+            thresh = N * v
+            total += thresh
             appended_sketch_width = sketch_width * v
-            total_appended_counters_count = appended_sketch_width * B / (B - 1)
             if total >= COUNT_PACKETS:
                 break
             command_dcms += ["--once", "expand", str(total), str(appended_sketch_width)]
-            for g in range(1, granularity):
-                index = prev_total + g / granularity * (total - prev_total)
-                appended_counters_count = total_appended_counters_count / granularity
-                compress_command = ["--once", "compress", str(index), "1000000000"]
-                command_gs += ["--once", "expand", str(index), str(appended_counters_count)] + compress_command
             j += 1
 
-        for args in [(0, "DCMS", command_dcms), (1, "GS", command_gs)]:
-            s, type, command = args
-            result = execute_command(command)
-            y_mae = result['log_average_relative_error'].dropna().to_numpy()
-            y_mem = result['memory_usage'].dropna().to_numpy()
-            d_mae = np.gradient(y_mae, packets_per_log)
-            x = result.index.to_numpy()
-            ax0.plot(x, y_mem, label=f"{type}-{i}", marker=markers[i + s * 2])
-            ax1.plot(x, y_mae, label=f"{type}-{i}", marker=markers[i + s * 2])
+        result = execute_command(command_dcms)
+        y_mae = result['log_average_relative_error'].dropna().to_numpy()
+        y_mem = result['memory_usage'].dropna().to_numpy()
+        x = result.index.to_numpy()
+        ax0.plot(x, y_mem, label=f"DCMS-STR{i}", marker=markers[i])
+        ax1.plot(x, y_mae, label=f"DCMS-STR{i}", marker=markers[i])
 
     ax0.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
     ax1.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
@@ -833,8 +774,9 @@ def plot_gs_dcms_granular_comparison(B: int, K: int, N: int, granularity: int, c
     ax1.grid()
     ax1.set_ylabel('ARE')
     ax1.set_xlabel('Packets Count')
-    ax1.legend()
+    ax0.legend()
     fig.tight_layout()
+    plt.savefig(f'figures/{figure_name}')
     plt.close(fig)
 
 
@@ -1098,19 +1040,22 @@ def plot_gs_derivative(B: int, L: int, count_expand: int, count_log: int, figure
     plt.savefig(f'figures/{figure_name}')
     plt.close(fig)
 
+font = {'family' : 'sans-serif',
+        'size'   : 12}
+
+plt.rc('font', **font)
 
 if __name__ == "__main__":
     # plot_gs_dynamic_undo_comparison(3, 24, "plot_gs_dynamic_undo_comparison")
     # plot_mae_dynamic_and_linked_cell(4, 128)
     # plot_mae_cellsketch_expand(2, 128)
-    # plot_update_query_throughput_gs
     # plot_gs_expand_undo_compress_throughput(8, 6, "fig_gs_expand_undo_compress_throughput")
-    plot_dcms_update_query_throughput(9, 7, "fig_dcms_update_query_throughput")
-    plot_cms_update_query_throughput(7, 7, 5, 2, "fig_cms_throughput")
-    plot_gs_update_query_throughput(9, 7, "fig_gs_update_query_throughput")
+    # plot_dcms_update_query_throughput(9, 7, "fig_dcms_update_query_throughput")
+    # plot_cms_update_query_throughput(7, 7, 5, 2, "fig_cms_throughput")
+    # plot_gs_update_query_throughput(9, 7, "fig_gs_update_query_throughput")
     # plot_gs_dcms_comparison(2, 2, 640, 32, "fig_gs_dcms_comparison_big_allocate")
     # plot_gs_cms_derivative_comparison(2, 4, 16, "fig_gs_cms_derivative")
-    # plot_gs_cms_comparison(2, 3, 16, "fig_gs_cms_compare")
+    # plot_gs_cms_comparison(2, 4, 16, "fig_gs_cms_compare")
     # plot_ip_distribution_zipf("fig_ip_distribution_zipf")
     # plot_ip_distribution("fig_ip_distribution")
     # plot_ip_distribution("fig_ip_distribution")
@@ -1118,5 +1063,5 @@ if __name__ == "__main__":
     # plot_gs_derivative(2, 3, 256, 16, "fig_gs_derivative")
     # plot_gs_undo_expand(B=2, L=3, max_cycles=4, granularity=128, count_log_memory=24, count_log_are=24, figure_name="fig_gs_undo_expand")
     # plot_gs_cms_static_comparison(2, 4, 16, "fig_gs_cms_static_comparison")
-    # plot_gs_dcms_granular_comparison(2, 2, 640, 4, 32)
+    plot_gs_dcms_granular_comparison(2, 4, 2*5*272*100, 32, "fig_gs_dcms_granular_comparison")
     # plot_gs_skew_branching_factor([2, 4, 8, 12, 16], 16, "fig_gs_skew_branching_factor")

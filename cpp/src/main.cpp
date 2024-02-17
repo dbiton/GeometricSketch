@@ -400,7 +400,7 @@ void proccess_input(int argc, const char *argv[])
 
 void manual_argument()
 {
-    std::string cmd = "--limit_file ..\\pcaps\\capture.txt 10000000 --type cellsketch --width 272 --depth 5 --branching_factor 8 --once expand 0 81489024.0 --repeat log_update_time 99999 --repeat log_query_time 99999";
+    std::string cmd = "--limit_file ..\\pcaps\\capture.txt 10000000 --type cellsketch --width 272 --depth 5 --branching_factor 2 --repeat expand 26 1 --repeat log_average_relative_error 6250 --once log_memory_usage 0 --once log_average_relative_error 0 --once log_memory_usage 99999 --once log_average_relative_error 99999 --repeat log_memory_usage 6250 --repeat compress 26 1000000";
 	std::vector<const char*> args;
 	std::istringstream iss(cmd);
 
