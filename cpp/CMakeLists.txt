@@ -3,11 +3,13 @@ cmake_minimum_required(VERSION 3.1...3.27)
 project(
   DynamicSketch
   VERSION 1.0
-  LANGUAGES CXX)
+  LANGUAGES C CXX)
 
 include_directories(include)
 
 add_executable(DynamicSketch
+    src/xxhash.c
+    src/xxh_x86dispatch.c
     src/BOBHash32.cpp
     src/countmin.cc
     src/DynamicSketch.cpp
