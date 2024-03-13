@@ -82,7 +82,7 @@ int LinkedCellSketch::query(uint32_t key)
         int prev_B_pow_layer_index = 1;
         int vector_offset = rowOffsetToVectorOffset(row_index, prev_row_offset);
         while (vector_offset < counters.size() + offset){
-            if (vector_offset >= offset) {
+            if (vector_offset >= O) {
                 long actual_index = (long)vector_offset - O;
                 current_estimate += counters[actual_index];
             }
