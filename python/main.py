@@ -123,7 +123,7 @@ def plot_gs_update_query_throughput(B: int, L: int, figure_name: str):
                 "--depth", str(sketch_depth),
                 "--branching_factor", str(b),
                 "--once", "expand", "0", str(expand_size),
-                "--once", "compress", "0", "999999999",
+                "--once", "compress", "1", "999999999",
                 "--once", "log_update_time", str(COUNT_PACKETS - 1),
                 "--once", "log_query_time", str(COUNT_PACKETS - 1)])
             ms_per_query = np.array(result['log_query_time'].dropna().to_numpy()).mean()
@@ -1081,7 +1081,7 @@ def plot_gs_derivative(B: int, L: int, count_expand: int, count_log: int, figure
     ax2.set_xlabel('Packets Count')
     markers = ["D", "s", "^", "*", "X"]
 
-    N = sketch_width * (B ** L - 1) / (B - 1) - sketch_width
+    N = sketch_depth * sketch_width * ((B ** L - 1) / (B - 1) - 1)
     expand_functions = [
         lambda x: N * math.sqrt(x),
         lambda x: N * math.log2(x + 1),
@@ -1103,12 +1103,11 @@ def plot_gs_derivative(B: int, L: int, count_expand: int, count_log: int, figure
             "--repeat", "log_memory_usage", str(packets_per_log),
             "--once", "log_memory_usage", str(COUNT_PACKETS - 1)]
         expands = []
-        for expand_index in range(1, count_expand):
+        for expand_index in range(1, count_expand + 1):
             packet_index = expand_index * packets_per_expand
-            expand_size = expand_function(expand_index / (count_expand - 1)) - sum(expands)
+            expand_size = expand_function(expand_index / count_expand) - sum(expands)
             expands.append(math.floor(expand_size))
             command += ["--once", "expand", str(packet_index), str(expand_size)]
-            command += ["--once", "compress", str(packet_index), str(1000000)]
         print(expands)
         result_cellsketch = execute_command(command)
         y_mae = np.array(
@@ -1116,9 +1115,9 @@ def plot_gs_derivative(B: int, L: int, count_expand: int, count_log: int, figure
         y_mem = np.array(result_cellsketch['memory_usage'].to_numpy())
         d_mae = np.gradient(y_mae, packets_per_log)
         x = np.array(result_cellsketch.index.to_numpy())
-        ax0.plot(x, y_mem, label=f"f-{i}", marker=markers[i])
-        ax1.plot(x, y_mae, label=f"f-{i}", marker=markers[i])
-        ax2.plot(x, d_mae, label=f"f-{i}", marker=markers[i])
+        ax0.plot(x, y_mem, label=f"f{i}", marker=markers[i])
+        ax1.plot(x, y_mae, label=f"f{i}", marker=markers[i])
+        ax2.plot(x, d_mae, label=f"f{i}", marker=markers[i])
     ax1.legend()
     fig.tight_layout()
     plt.savefig(f'figures/{figure_name}')
@@ -1143,9 +1142,9 @@ if __name__ == "__main__":
     # plot_gs_undo_expand(B=2, L=3, max_cycles=4, granularity=128, count_log_memory=24, count_log_are=24, figure_name="fig_gs_undo_expand")
     # plot_gs_cms_static_comparison(2, 4, 16, "fig_gs_cms_static_comparison")
     # plot_gs_dcms_granular_comparison(2, 4, 2*5*272*100, 32, "fig_gs_dcms_granular_comparison")
-    plot_gs_skew_branching_factor([2, 4, 8, 12, 16], 16, "fig_gs_skew_branching_factor")
+    # plot_gs_skew_branching_factor([2, 4, 8, 12, 16], 16, "fig_gs_skew_branching_factor")
     # plot_gs_expand_undo_compress_throughput(8, 6, "fig_gs_expand_undo_compress_throughput")
     # plot_dcms_update_query_throughput(9, 7, "fig_dcms_update_query_throughput")
     # plot_cms_update_query_throughput(7, 7, 5, 2, "fig_cms_throughput")
-    # plot_gs_update_query_throughput(9, 7, "fig_gs_update_query_throughput")
+    plot_gs_update_query_throughput(9, 7, "fig_gs_update_query_throughput")
     # plot_dcms_memory_usage([2, 5], [1000, 500], 32, "fig_dcms_memory_usage")
