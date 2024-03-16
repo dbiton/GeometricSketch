@@ -116,18 +116,25 @@ int LinkedCellSketch::query(uint32_t key)
     */
 }
 
+// this and compress can be improved by not using getVectorOffsetParent each time
+// and instead going from parent to parent but it would make the function uglier and
+// I am lazy
 int LinkedCellSketch::undoExpand(int n)
 {
     int counter_undo = 0;
+    // start from the last counter
+    //std::cout << "undoExpand:" << std::endl;
     for (int i_child = counters.size()-1; i_child >= counters.size() - n; i_child--)
     {
-        int i_parent = getVectorOffsetParent(i_child);
+        long actual_index_child = i_child - offset;
+        //std::cout << "child:" << i_child << std::endl;
+        int i_parent = getVectorOffsetParent(actual_index_child);
         if (i_parent == -1 || i_parent - offset < 0)
         {
             break;
         }
+        //std::cout << "parent:" << i_parent << std::endl;
         long actual_index_parent = (long)i_parent - offset;
-        long actual_index_child = (long)i_child - offset;
         counters[actual_index_parent] += counters[actual_index_child];
         counter_undo++;
     }
@@ -135,13 +142,17 @@ int LinkedCellSketch::undoExpand(int n)
     return counter_undo;
 }
 
+// compress takes into account offset
 int LinkedCellSketch::compress(int n)
 {
     int compress_counter = 0;
+    //std::cout << "compress:" << std::endl;
     for (int counter_index_parent = offset; counter_index_parent < offset + n; counter_index_parent++)
     {
         long counter_index_parent_actual = counter_index_parent - offset;
+        //std::cout << "parent:" << counter_index_parent_actual << std::endl;
         size_t counter_index_first_child = getVectorOffsetFirstChild(counter_index_parent);
+        //std::cout << "child:" << counter_index_first_child << std::endl;
         size_t counter_index_last_child = counter_index_first_child + (branching_factor - 1) * depth;
         // can't compress counter if some of it's children are missing
         if (counter_index_last_child >= offset + counters.size()) {
