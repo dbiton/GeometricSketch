@@ -23,7 +23,7 @@ else:
     filepath_executable = "../cpp/build-DynamicSketch-Desktop-Release/DynamicSketch"
 
 COUNT_PACKETS_MAX = 37700000
-COUNT_PACKETS = min(1000000, COUNT_PACKETS_MAX)
+COUNT_PACKETS = min(37700000, COUNT_PACKETS_MAX)
 
 
 def execute_command(arguments: list, packets_path=filepath_packets):
@@ -1083,10 +1083,10 @@ def plot_gs_derivative(B: int, L: int, count_expand: int, count_log: int, figure
 
     N = sketch_depth * sketch_width * ((B ** L - 1) / (B - 1) - 1)
     expand_functions = [
+        lambda x: N * math.sin(math.sqrt(x) * math.pi / 2),
         lambda x: N * math.sqrt(x),
         lambda x: N * math.log2(x + 1),
         lambda x: N * (2 ** x - 1),
-        lambda x: N * math.sin(math.sqrt(x) * math.pi / 2),
         lambda x: N * math.asin(x * x) * 2 / math.pi
     ]
 
@@ -1138,7 +1138,7 @@ if __name__ == "__main__":
     # plot_ip_distribution_zipf("fig_ip_distribution_zipf")
     # plot_ip_distribution("fig_ip_distribution")
     # plot_branching_factor([2, 4, 8], 16, "fig_branching_factor")
-    # plot_gs_derivative(2, 3, 256, 16, "fig_gs_derivative")
+    plot_gs_derivative(2, 3, 256, 16, "fig_gs_derivative")
     # plot_gs_undo_expand(B=2, L=3, max_cycles=4, granularity=128, count_log_memory=24, count_log_are=24, figure_name="fig_gs_undo_expand")
     # plot_gs_cms_static_comparison(2, 4, 16, "fig_gs_cms_static_comparison")
     # plot_gs_dcms_granular_comparison(2, 4, 2*5*272*100, 32, "fig_gs_dcms_granular_comparison")
@@ -1146,5 +1146,5 @@ if __name__ == "__main__":
     # plot_gs_expand_undo_compress_throughput(8, 6, "fig_gs_expand_undo_compress_throughput")
     # plot_dcms_update_query_throughput(9, 7, "fig_dcms_update_query_throughput")
     # plot_cms_update_query_throughput(7, 7, 5, 2, "fig_cms_throughput")
-    plot_gs_update_query_throughput(9, 7, "fig_gs_update_query_throughput")
+    # plot_gs_update_query_throughput(9, 7, "fig_gs_update_query_throughput")
     # plot_dcms_memory_usage([2, 5], [1000, 500], 32, "fig_dcms_memory_usage")
