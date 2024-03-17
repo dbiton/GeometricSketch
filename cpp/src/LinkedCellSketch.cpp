@@ -127,13 +127,13 @@ int LinkedCellSketch::undoExpand(int n)
     for (int i_child = counters.size()-1; i_child >= counters.size() - n; i_child--)
     {
         long actual_index_child = i_child - offset;
-        //std::cout << "child:" << i_child << std::endl;
+        std::cout << "child:" << i_child << std::endl;
         int i_parent = getVectorOffsetParent(actual_index_child);
         if (i_parent == -1 || i_parent - offset < 0)
         {
             break;
         }
-        //std::cout << "parent:" << i_parent << std::endl;
+        std::cout << "parent:" << i_parent << std::endl;
         long actual_index_parent = (long)i_parent - offset;
         counters[actual_index_parent] += counters[actual_index_child];
         counter_undo++;
@@ -142,34 +142,6 @@ int LinkedCellSketch::undoExpand(int n)
     return counter_undo;
 }
 
-/*
-int compress_counter = 0;
-    int counter_index_parent = offset;
-    int counter_index_first_child = getVectorOffsetFirstChild(counter_index_parent);
-    while (counter_index_parent < offset + n) {
-        //std::cout << "parent:" << counter_index_parent << std::endl;
-        //std::cout << "first child:" << counter_index_first_child << std::endl;
-        int counter_index_last_child = counter_index_first_child + (branching_factor - 1) * depth;
-        //std::cout << "last child:" << counter_index_last_child << std::endl;
-        if (counter_index_last_child >= offset + counters.size()) {
-            break;
-        }
-        compress_counter++;
-        long counter_index_parent_actual = counter_index_parent - offset;
-        for (int index_child = counter_index_first_child; index_child <= counter_index_last_child; index_child += depth)
-        {
-            long counter_index_child_actual = index_child - offset;
-            counters[counter_index_child_actual] += counters[counter_index_parent_actual];
-        }
-        counter_index_parent++;
-        int child_incr_amount = counter_index_parent % depth == 0 ? depth + 1 : 1;
-        counter_index_first_child+=child_incr_amount;
-    }
-    counters.erase(counters.begin(), counters.begin() + compress_counter);
-    offset += compress_counter;
-    return compress_counter;
-*/
-
 // compress takes into account offset
 int LinkedCellSketch::compress(int n)
 {
@@ -177,23 +149,19 @@ int LinkedCellSketch::compress(int n)
     int counter_index_parent = offset;
     int counter_index_first_child = getVectorOffsetFirstChild(counter_index_parent);
     while (counter_index_parent < offset + n) {
-        //std::cout << "parent:" << counter_index_parent << std::endl;
-        //std::cout << "first child:" << counter_index_first_child << std::endl;
         int counter_index_last_child = counter_index_first_child + (branching_factor - 1) * depth;
-        //std::cout << "last child:" << counter_index_last_child << std::endl;
         if (counter_index_last_child >= offset + counters.size()) {
             break;
         }
-        compress_counter++;
         long counter_index_parent_actual = counter_index_parent - offset;
         for (int index_child = counter_index_first_child; index_child <= counter_index_last_child; index_child += depth)
         {
             long counter_index_child_actual = index_child - offset;
             counters[counter_index_child_actual] += counters[counter_index_parent_actual];
         }
+        compress_counter++;
         counter_index_parent++;
-        int child_incr_amount = counter_index_parent % depth == 0 ? depth + 1 : 1;
-        counter_index_first_child+=child_incr_amount;
+        counter_index_first_child = (counter_index_parent % depth == 0) ? counter_index_last_child + 1 : counter_index_first_child + 1;
     }
     counters.erase(counters.begin(), counters.begin() + compress_counter);
     offset += compress_counter;
