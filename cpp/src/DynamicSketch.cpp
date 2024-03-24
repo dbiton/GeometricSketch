@@ -19,7 +19,7 @@ DynamicSketch::DynamicSketch(int width, int depth) : Dictionary()
 DynamicSketch::~DynamicSketch()
 {
     while (sketches.size() > 0) {
-        delete sketches.back();
+        CM_Destroy(sketches.back());
         sketches.pop_back();
     }
 }
@@ -83,7 +83,7 @@ int DynamicSketch::shrink(int n)
         if (sketch_large->width <= n) {
             bytes_removed = sketch_large->width;
             mergeCountMin(sketch_small, sketch_large);
-            delete sketch_large;
+            CM_Destroy(sketch_large);
             sketches.pop_back();
         }
     }

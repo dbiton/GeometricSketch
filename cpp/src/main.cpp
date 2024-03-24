@@ -398,7 +398,7 @@ int main(int argc, const char *argv[])
 	int C = 100;
 	for (int B = 2; B <= 7; B++) {
 		for (int L = 1; L <= 6; L++) {
-			duration d;
+            duration d = duration::zero();
 			for (int i = 0; i < C; i++) {
 				auto s = new DynamicSketch(CM_WIDTH, CM_DEPTH);
 				for (int l = 1; l < L; l++) {
@@ -412,7 +412,7 @@ int main(int argc, const char *argv[])
 				delete s;
 			}
 			double expand_time = d.count();
-			std::cout << expand_time / C << " ";
+            std::cout << (expand_time / C) << " ";
 		}
 		std::cout << std::endl;
 	}
