@@ -146,7 +146,7 @@ def plot_dcms_update_query_throughput(B: int, S: int, figure_name: str):
                 "--depth", str(sketch_depth),
                 "--once", "log_update_time", str(COUNT_PACKETS - 1),
                 "--once", "log_query_time", str(COUNT_PACKETS - 1)]
-            for i in range(s):
+            for i in range(1, s):
                 sketch_size = b ** i * sketch_width
                 command += ["--once", "expand", "0", str(sketch_size)]
             result = execute_command(command)
@@ -1224,9 +1224,9 @@ if __name__ == "__main__":
     # plot_gs_skew_branching_factor([2, 4, 8, 12, 16], 16, "fig_gs_skew_branching_factor")
     # plot_dcms_memory_usage([2, 5], [1000, 500], 32, "fig_dcms_memory_usage")
 
-    #plot_gs_compress_throughput(8, 6, "fig_gs_compress_throughput")
-    # plot_gs_expand_undo_throughput(8, 6, "fig_gs_expand_undo_throughput")
-    plot_dcms_expand_undo_throughput(8, 6, "fig_dcms_expand_undo_throughput")
-    #plot_dcms_update_query_throughput(8, 6, "fig_dcms_update_query_throughput")
-    #plot_cms_update_query_throughput(6, 6, 5, 2, "fig_cms_throughput")
-    #plot_gs_update_query_throughput(8, 6, "fig_gs_update_query_throughput")
+    plot_gs_compress_throughput(7, 5, "fig_gs_compress_throughput")
+    plot_gs_expand_undo_throughput(7, 5, "fig_gs_expand_undo_throughput")
+    plot_dcms_expand_undo_throughput(7, 5, "fig_dcms_expand_undo_throughput")
+    plot_dcms_update_query_throughput(7, 5, "fig_dcms_update_query_throughput")
+    plot_cms_update_query_throughput(5, 5, 5, 2, "fig_cms_throughput")
+    plot_gs_update_query_throughput(7, 5, "fig_gs_update_query_throughput")
