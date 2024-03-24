@@ -8,6 +8,7 @@ class DynamicSketch : public Dictionary
 	std::vector<CM_type*> sketches;
 public:
     DynamicSketch(int width, int depth);
+	~DynamicSketch();
 
 	void update(uint32_t key, int amount);
 	int query(uint32_t item);

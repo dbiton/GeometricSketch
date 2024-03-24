@@ -23,7 +23,7 @@ else:
     filepath_executable = "../cpp/build-DynamicSketch-Desktop-Release/DynamicSketch"
 
 COUNT_PACKETS_MAX = 37700000
-COUNT_PACKETS = min(37700000, COUNT_PACKETS_MAX)
+COUNT_PACKETS = min(10000, COUNT_PACKETS_MAX)
 
 
 def execute_command(arguments: list, packets_path=filepath_packets):
@@ -46,24 +46,25 @@ def get_packets(filepath_packets: str):
     return np.array([int(ip) for ip in file_packets.readlines()])
 
 
-def plot_cms_update_query_throughput(count_width: int, count_depth: int, depth: int, branching_factor: int, figure_name: str):
+def plot_cms_update_query_throughput(count_width: int, count_depth: int, depth: int, branching_factor: int,
+                                     figure_name: str):
     fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
     packets_per_log_time = COUNT_PACKETS - 1
     throughputs_update = np.zeros((count_depth, count_width))
     throughputs_query = np.zeros((count_depth, count_width))
     for D in range(1, count_depth + 1):
         for sketch_width_pow in range(0, count_width):
-            W = 272 * 2 ** sketch_width_pow
+            W = 272 * (2 ** sketch_width_pow)
             result = execute_command([
                 "--type", "countmin",
                 "--width", str(W),
-                "--depth", str(D*depth),
+                "--depth", str(D * depth),
                 "--repeat", "log_update_time", str(packets_per_log_time),
                 "--repeat", "log_query_time", str(packets_per_log_time)])
             ms_per_update = np.array(result['log_update_time'].dropna().to_numpy()).mean()
-            throughput_update = 10 / (ms_per_update * 10e3)
+            throughput_update = 1 / (ms_per_update * 1e3)
             ms_per_query = np.array(result['log_query_time'].dropna().to_numpy()).mean()
-            throughput_query = 10 / (ms_per_query * 10e3)
+            throughput_query = 1 / (ms_per_query * 1e3)
             throughputs_update[D - 1, sketch_width_pow] = throughput_update
             throughputs_query[D - 1, sketch_width_pow] = throughput_query
 
@@ -78,10 +79,10 @@ def plot_cms_update_query_throughput(count_width: int, count_depth: int, depth: 
         for (j, i), label in np.ndenumerate(throughputs):
             ax.text(i + 0.5 + 1, j + 0.5, int(label), ha='center', va='center')
 
-    ax0.set_title('CMS Update 10*MOPS')
+    ax0.set_title('CMS Update MOPS')
     ax0.set_ylabel('Depth')
     ax0.set_xlabel('log2(Width/W)')
-    ax1.set_title('CMS Query 10*MOPS')
+    ax1.set_title('CMS Query MOPS')
     ax1.set_ylabel('Depth')
     ax1.set_xlabel('log2(Width/W)')
     fig.tight_layout()
@@ -93,10 +94,9 @@ def plot_gs_update_query_throughput(B: int, L: int, figure_name: str):
     sketch_width = 272
     sketch_depth = 5
 
-    fig, (ax0, ax1, ax2) = plt.subplots(1, 3, figsize=(12, 4))
+    fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
     throughputs_update = np.zeros((L, B - 2))
     throughputs_query = np.zeros((L, B - 2))
-    throughputs_query_compressed = np.zeros((L, B - 2))
     for l in range(L):
         for b in range(2, B):
             expand_size = sketch_width * ((b ** (l + 1) - 1) / (b - 1)) - sketch_width
@@ -110,53 +110,35 @@ def plot_gs_update_query_throughput(B: int, L: int, figure_name: str):
                 "--once", "log_query_time", str(COUNT_PACKETS - 1)])
 
             ms_per_update = np.array(result['log_update_time'].dropna().to_numpy()).mean()
-            throughputs_update[l, b - 2] = 10 / (ms_per_update * 10e3)
+            throughputs_update[l, b - 2] = 1 / (ms_per_update * 1e3)
             ms_per_query = np.array(result['log_query_time'].dropna().to_numpy()).mean()
-            throughputs_query[l, b - 2] = 10 / (ms_per_query * 10e3)
-
-    for l in range(L):
-        for b in range(2, B):
-            expand_size = sketch_width * ((b ** (l + 1) - 1) / (b - 1)) - sketch_width
-            result = execute_command([
-                "--type", "cellsketch",
-                "--width", str(sketch_width),
-                "--depth", str(sketch_depth),
-                "--branching_factor", str(b),
-                "--once", "expand", "0", str(expand_size),
-                "--once", "compress", "1", "999999999",
-                "--once", "log_update_time", str(COUNT_PACKETS - 1),
-                "--once", "log_query_time", str(COUNT_PACKETS - 1)])
-            ms_per_query = np.array(result['log_query_time'].dropna().to_numpy()).mean()
-            throughputs_query_compressed[l, b - 2] = 10 / (ms_per_query * 10e3)
+            throughputs_query[l, b - 2] = 1 / (ms_per_query * 1e3)
 
     im0 = ax0.imshow(throughputs_update, origin='lower', extent=[2, B, 0, L])
     im1 = ax1.imshow(throughputs_query, origin='lower', extent=[2, B, 0, L])
-    im2 = ax2.imshow(throughputs_query_compressed, origin='lower', extent=[2, B, 0, L])
-    for (throughputs, ax) in [(throughputs_update, ax0), (throughputs_query, ax1), (throughputs_query_compressed, ax2)]:
+    for (throughputs, ax) in [(throughputs_update, ax0), (throughputs_query, ax1)]:
         for (j, i), label in np.ndenumerate(throughputs):
             ax.text(i + 2.5, j + 0.5, int(label), ha='center', va='center')
 
-    ax0.set_title('GS Update 10*MOPS')
+    ax0.set_title('GS Update MOPS')
     ax0.set_xlabel('Branching Factor')
     ax0.set_ylabel('Layers')
-    ax1.set_title('Uncompressed GS Query 10*MOPS')
+    ax1.set_title('Uncompressed GS Query MOPS')
     ax1.set_xlabel('Branching Factor')
     ax1.set_ylabel('Layers')
-    ax2.set_title('Compressed GS Query 10*MOPS')
-    ax2.set_xlabel('Branching Factor')
-    ax2.set_ylabel('Layers')
     fig.tight_layout()
     plt.savefig(f'figures/{figure_name}')
     plt.close(fig)
+
 
 def plot_dcms_update_query_throughput(B: int, S: int, figure_name: str):
     sketch_width = 272
     sketch_depth = 5
 
     fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
-    throughputs_update = np.zeros((S, B-2))
-    throughputs_query = np.zeros((S, B-2))
-    for s in range(1, S+1):
+    throughputs_update = np.zeros((S, B - 2))
+    throughputs_query = np.zeros((S, B - 2))
+    for s in range(1, S + 1):
         for b in range(2, B):
             command = [
                 "--type", "dynamic",
@@ -169,20 +151,20 @@ def plot_dcms_update_query_throughput(B: int, S: int, figure_name: str):
                 command += ["--once", "expand", "0", str(sketch_size)]
             result = execute_command(command)
             ms_per_update = np.array(result['log_update_time'].dropna().to_numpy()).mean()
-            throughputs_update[s - 1, b - 2] = 10 / (ms_per_update * 10e3)
+            throughputs_update[s - 1, b - 2] = 1 / (ms_per_update * 1e3)
             ms_per_query = np.array(result['log_query_time'].dropna().to_numpy()).mean()
-            throughputs_query[s - 1, b - 2] = 10 / (ms_per_query * 10e3)
-    im0 = ax0.imshow(throughputs_update, origin='lower', extent=[2, B, 1, S+1])
-    im1 = ax1.imshow(throughputs_query, origin='lower', extent=[2, B, 1, S+1])
+            throughputs_query[s - 1, b - 2] = 1 / (ms_per_query * 1e3)
+    im0 = ax0.imshow(throughputs_update, origin='lower', extent=[2, B, 1, S + 1])
+    im1 = ax1.imshow(throughputs_query, origin='lower', extent=[2, B, 1, S + 1])
 
     for (throughputs, ax) in [(throughputs_update, ax0), (throughputs_query, ax1)]:
         for (j, i), label in np.ndenumerate(throughputs):
             ax.text(i + 2.5, j + 1.5, int(label), ha='center', va='center')
 
-    ax0.set_title('DCMS Update 10*MOPS')
+    ax0.set_title('DCMS Update MOPS')
     ax0.set_xlabel('Branching Factor')
     ax0.set_ylabel('Sketches')
-    ax1.set_title('DCMS Query 10*MOPS')
+    ax1.set_title('DCMS Query MOPS')
     ax1.set_xlabel('Branching Factor')
     ax1.set_ylabel('Sketches')
     fig.tight_layout()
@@ -190,68 +172,162 @@ def plot_dcms_update_query_throughput(B: int, S: int, figure_name: str):
     plt.close(fig)
 
 
-def plot_gs_expand_undo_compress_throughput(B: int, L: int, figure_name: str):
+# need to actually compress
+def plot_gs_compress_throughput(B: int, L: int, figure_name: str):
     sketch_width = 272
     sketch_depth = 5
 
-    fig, (ax_expand, ax_shrink, ax_compress) = plt.subplots(1, 3, figsize=(12, 4))
+    fig, (ax_compress, ax_query) = plt.subplots(1, 2, figsize=(8, 4))
+    count_log_time = 16
+    count_query = 64
+    throughputs_compress = np.zeros((L, B - 2))
+    throughputs_query = np.zeros((L, B - 2))
+    count_repeat = 10
+    for l in range(1, L + 1):
+        for b in range(2, B):
+            expand_size = sketch_depth * (sketch_width * ((b ** (l + 1) - 1) / (b - 1)) - sketch_width)
+            last_layer_size = sketch_depth * sketch_width * b ** l
+            one_before_last_layer_size = sketch_depth * sketch_width * b ** (l - 1)
+            compress_size = max(0, expand_size - last_layer_size - one_before_last_layer_size)
+            avg_ms_per_query = 0
+            avg_ms_per_compress = 0
+            for _ in range(count_repeat):
+                result = execute_command([
+                    "--type", "cellsketch",
+                    "--width", str(sketch_width),
+                    "--depth", str(sketch_depth),
+                    "--branching_factor", str(b),
+                    "--once", "expand", "0", str(expand_size),
+                    "--once", "compress", "1", str(compress_size),
+                    "--once", "compress", "2", str(one_before_last_layer_size),
+                    "--once", "log_query_time", str(COUNT_PACKETS - 1),
+                ])
+                avg_ms_per_compress += np.array(result['log_compress_time'].dropna().to_numpy())[-1]
+                avg_ms_per_query += np.array(result['log_query_time'].dropna().to_numpy()).mean()
+            avg_ms_per_compress /= count_repeat
+            avg_ms_per_query /= count_repeat
+            throughputs_compress[l - 1, b - 2] = log10(1 / (avg_ms_per_compress * 1e3))
+            throughputs_query[l - 1, b - 2] = 1 / (avg_ms_per_query * 1e3)
+    im0 = ax_compress.imshow(throughputs_compress, origin='lower', extent=[2, B, 0, L])
+    im1 = ax_query.imshow(throughputs_query, origin='lower', extent=(2, B, 1, L + 1))
+
+    for (j, i), label in np.ndenumerate(throughputs_query):
+        ax_query.text(i + 2.5, j + 1.5, int(label), ha='center', va='center')
+
+    for (j, i), label in np.ndenumerate(throughputs_compress):
+        ax_compress.text(i + 2.5, j + 0.5, int(label), ha='center', va='center')
+
+    ax_compress.set_title('GS Compress Log10(MOPS)')
+    ax_compress.set_xlabel('Branching Factor')
+    ax_compress.set_ylabel('Layers')
+    ax_query.set_title('GS Compressed Query MOPS')
+    ax_query.set_xlabel('Branching Factor')
+    ax_query.set_ylabel('Layers')
+    fig.tight_layout()
+    plt.savefig(f'figures/{figure_name}')
+    plt.close(fig)
+
+
+def plot_gs_expand_undo_throughput(B: int, L: int, figure_name: str):
+    sketch_width = 272
+    sketch_depth = 5
+
+    fig, (ax_expand, ax_shrink) = plt.subplots(1, 2, figsize=(8, 4))
     count_log_time = 16
     count_query = 64
     packets_per_log_time = COUNT_PACKETS // count_log_time
     packets_per_query = COUNT_PACKETS // count_query
-    throughputs_compress = np.zeros((L, B - 2))
     throughputs_expand = np.zeros((L, B - 2))
-    throughputs_shrink = np.zeros((L, B - 2))
-    for l in range(L):
+    throughputs_undo = np.zeros((L, B - 2))
+    count_repeat = 10
+    for layer_index in range(L):
         for b in range(2, B):
-            expand_size = sketch_width * ((b ** (l + 1) - 1) / (b - 1)) - sketch_width
-            next_layer_width = sketch_width * b ** (l + 1)
-            result = execute_command([
-                "--type", "cellsketch",
-                "--width", str(sketch_width),
-                "--depth", str(sketch_depth),
-                "--branching_factor", str(b),
-                "--once", "expand", "0", str(expand_size),
-                "--once", "log_expand_and_shrink_time", "0", str(next_layer_width)
-            ])
-            ms_per_expand = np.array(result['log_expand_time'].dropna().to_numpy()).mean()
-            throughputs_expand[l, b - 2] = log10(1 / (ms_per_expand * 10e3))
-            ms_per_shrink = np.array(result['log_shrink_time'].dropna().to_numpy()).mean()
-            throughputs_shrink[l, b - 2] = log10(1 / (ms_per_shrink * 10e3))
-    for l in range(1, L + 1):
-        for b in range(2, B):
-            expand_size = sketch_width * ((b ** (l + 1) - 1) / (b - 1)) - sketch_width
-            curr_layer_width = sketch_width * b ** l
-            result = execute_command([
-                "--type", "cellsketch",
-                "--width", str(sketch_width),
-                "--depth", str(sketch_depth),
-                "--branching_factor", str(b),
-                "--once", "expand", "0", str(expand_size),
-                "--once", "log_compress_time", "0", str(curr_layer_width)
-            ])
-            ms_per_compress = np.array(result['log_compress_time'].dropna().to_numpy()).mean()
-            throughputs_compress[l - 1, b - 2] = log10(1 / (ms_per_compress * 10e3))
-    im0 = ax_expand.imshow(throughputs_expand, origin='lower', extent=[2, B, 0, L])
-    im1 = ax_shrink.imshow(throughputs_shrink, origin='lower', extent=[2, B, 0, L])
-    im2 = ax_compress.imshow(throughputs_compress, origin='lower', extent=[2, B, 1, L + 1])
+            expand_size = sketch_depth * (sketch_width * ((b ** (layer_index + 1) - 1) / (b - 1)) - sketch_width)
+            next_layer_width = sketch_depth * sketch_width * b ** (layer_index + 1)
+            avg_ms_per_expand = 0
+            avg_ms_per_shrink = 0
+            for _ in range(count_repeat):
+                result = execute_command([
+                    "--type", "cellsketch",
+                    "--width", str(sketch_width),
+                    "--depth", str(sketch_depth),
+                    "--branching_factor", str(b),
+                    "--once", "expand", "0", str(expand_size),
+                    "--once", "expand", "1", str(next_layer_width),
+                    "--once", "shrink", "2", str(next_layer_width),
+                ])
+                avg_ms_per_expand += np.array(result['log_expand_time'].dropna().to_numpy())[-1]
+                avg_ms_per_shrink += np.array(result['log_shrink_time'].dropna().to_numpy())[-1]
+            avg_ms_per_expand /= count_repeat
+            avg_ms_per_shrink /= count_repeat
+            throughputs_expand[layer_index, b - 2] = log10(1 / (avg_ms_per_expand * 1e3))
+            throughputs_undo[layer_index, b - 2] = log10(1 / (avg_ms_per_shrink * 1e3))
+    im0 = ax_expand.imshow(throughputs_expand, origin='lower', extent=[2, B, 1, L + 1])
+    im1 = ax_shrink.imshow(throughputs_undo, origin='lower', extent=[2, B, 1, L + 1])
 
-    for (throughputs, ax) in [(throughputs_expand, ax_expand), (throughputs_shrink, ax_shrink)]:
+    for (throughputs, ax) in [(throughputs_expand, ax_expand), (throughputs_undo, ax_shrink)]:
         for (j, i), label in np.ndenumerate(throughputs):
-            ax.text(i + 2.5, j + 0.5, int(label), ha='center', va='center')
-
-    for (j, i), label in np.ndenumerate(throughputs_compress):
-        ax_compress.text(i + 2.5, j + 1.5, int(label), ha='center', va='center')
+            ax.text(i + 2.5, j + 1.5, int(label), ha='center', va='center')
 
     ax_expand.set_title('GS Expand Log10(MOPS)')
     ax_expand.set_xlabel('Branching Factor')
     ax_expand.set_ylabel('Layers')
-    ax_shrink.set_title('GS Shrink Log10(MOPS)')
+    ax_shrink.set_title('GS Undo Log10(MOPS)')
     ax_shrink.set_xlabel('Branching Factor')
     ax_shrink.set_ylabel('Layers')
-    ax_compress.set_title('GS Compress Log10(MOPS)')
-    ax_compress.set_xlabel('Branching Factor')
-    ax_compress.set_ylabel('Layers')
+    fig.tight_layout()
+    plt.savefig(f'figures/{figure_name}')
+    plt.close(fig)
+
+
+def plot_dcms_expand_undo_throughput(B: int, L: int, figure_name: str):
+    sketch_width = 272
+    sketch_depth = 5
+
+    fig, (ax_expand, ax_shrink) = plt.subplots(1, 2, figsize=(8, 4))
+    count_log_time = 16
+    count_query = 64
+    throughputs_expand = np.zeros((L, B - 2))
+    throughputs_undo = np.zeros((L, B - 2))
+    count_repeat = 10
+    for layer_index in range(L):
+        for b in range(2, B):
+            arr_ms_per_expand = np.zeros(count_repeat)
+            arr_ms_per_shrink = np.zeros(count_repeat)
+            for c in range(count_repeat):
+                commmand = [
+                    "--type", "dynamic",
+                    "--width", str(sketch_width),
+                    "--depth", str(sketch_depth),
+                    "--branching_factor", str(b)
+                ]
+                # not a bug - DCMS gets expand size without depth (multiplies by depth) while GS doesnt
+                for i in range(1, layer_index + 1):
+                    expand_size = sketch_width * (b ** i)
+                    commmand.extend(["--once", "expand", str(i-1), str(expand_size)])
+                commmand.extend(["--once", "expand", str(layer_index), str(sketch_width * b ** (layer_index + 1))])
+                commmand.extend(["--once", "shrink", str(layer_index + 1), str(sketch_width * b ** (layer_index + 1))])
+                result = execute_command(commmand)
+                arr_ms_per_expand[c] = np.array(result['log_expand_time'].dropna().to_numpy())[-1]
+                arr_ms_per_shrink[c] = np.array(result['log_shrink_time'].dropna().to_numpy())[-1]
+                print(np.array(result['log_expand_time'].dropna().to_numpy()))
+            avg_ms_per_expand = arr_ms_per_expand.mean()
+            avg_ms_per_shrink = arr_ms_per_shrink.mean()
+            throughputs_expand[layer_index, b - 2] = log10(1 / (avg_ms_per_expand * 1e3))
+            throughputs_undo[layer_index, b - 2] = log10(1 / (avg_ms_per_shrink * 1e3))
+    im0 = ax_expand.imshow(throughputs_expand, origin='lower', extent=[2, B, 1, L + 1])
+    im1 = ax_shrink.imshow(throughputs_undo, origin='lower', extent=[2, B, 1, L + 1])
+
+    for (throughputs, ax) in [(throughputs_expand, ax_expand), (throughputs_undo, ax_shrink)]:
+        for (j, i), label in np.ndenumerate(throughputs):
+            ax.text(i + 2.5, j + 1.5, int(label), ha='center', va='center')
+
+    ax_expand.set_title('DCMS Expand Log10(MOPS)')
+    ax_expand.set_xlabel('Branching Factor')
+    ax_expand.set_ylabel('Layers')
+    ax_shrink.set_title('DCMS Undo Log10(MOPS)')
+    ax_shrink.set_xlabel('Branching Factor')
+    ax_shrink.set_ylabel('Layers')
     fig.tight_layout()
     plt.savefig(f'figures/{figure_name}')
     plt.close(fig)
@@ -459,7 +535,7 @@ def plot_gs_skew_branching_factor(Bs: list, count_log: int, figure_name: str):
     min_step = 0.01
     for i, B in enumerate(Bs):
         max_a = 2.2
-        step = round((max_a-1) / count_log, 2)
+        step = round((max_a - 1) / count_log, 2)
         y_are_cmp = []
         y_are_uncmp = []
         x = []
@@ -505,6 +581,7 @@ def plot_gs_skew_branching_factor(Bs: list, count_log: int, figure_name: str):
     plt.close(fig)
     COUNT_PACKETS = OLD_COUNT_PACKETS
 
+
 def plot_gs_cms_derivative_comparison(B: int, L: int, count_log: int, figure_name: str):
     sketch_width = 272
     sketch_depth = 5
@@ -516,7 +593,7 @@ def plot_gs_cms_derivative_comparison(B: int, L: int, count_log: int, figure_nam
 
     markers = ["D", "s", "^", "o", "p"]
     for l in range(L):
-        cm_width = sketch_width * B ** l
+        cm_width = sketch_width * (B ** l)
         result_countmin = execute_command([
             "--type", "countmin",
             "--width", str(cm_width),
@@ -585,7 +662,7 @@ def plot_gs_cms_static_comparison(B: int, L: int, count_log: int, figure_name):
 
     markers = ["s", "p", "d", "D", "v", "^", ">", "<"]
     for l in range(1, L):
-        cm_width = sketch_width * B ** l
+        cm_width = sketch_width * (B ** l)
         result_countmin = execute_command([
             "--type", "countmin",
             "--width", str(cm_width),
@@ -689,7 +766,8 @@ def plot_gs_dcms_comparison(B: int, K: int, N: int, count_log: int, figure_name:
                 break
             compress_command = ["--once", "compress", str(total), "1000000000"]
             command_dcms += ["--once", "expand", str(total), str(appended_sketch_width)]
-            command_gs_compressed += ["--once", "expand", str(total), str(appended_counters_count * B / (B - 1))] + compress_command
+            command_gs_compressed += ["--once", "expand", str(total),
+                                      str(appended_counters_count * B / (B - 1))] + compress_command
             command_gs_uncompressed += ["--once", "expand", str(total), str(appended_counters_count)]
             j += 1
 
@@ -736,7 +814,7 @@ def plot_dcms_memory_usage(KS: list, NS: list, count_log: int, figure_name: str)
 
         bytes_per_int = 4
         slope = bytes_per_int * sketch_width * sketch_depth / N
-        ax.plot([0, COUNT_PACKETS], [0, COUNT_PACKETS*slope],
+        ax.plot([0, COUNT_PACKETS], [0, COUNT_PACKETS * slope],
                 color=colors[kn_index], linestyle=linestyles[kn_index],
                 label=f"SLP-N{N}-K{K}")
 
@@ -765,7 +843,7 @@ def plot_dcms_memory_usage(KS: list, NS: list, count_log: int, figure_name: str)
             result = execute_command(command_dcms)
             y_mem = result['memory_usage'].dropna().to_numpy()
             x = result.index.to_numpy()
-            ax.plot(x, y_mem, label=f"{strategy_names[i]}-N{N}-K{K}", marker=markers[kn_index*2+i])
+            ax.plot(x, y_mem, label=f"{strategy_names[i]}-N{N}-K{K}", marker=markers[kn_index * 2 + i])
 
     ax.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
     ax.grid()
@@ -793,7 +871,7 @@ def plot_gs_dcms_granular_comparison(B: int, K: int, N: int, count_log: int, fig
     for i, is_compressed in enumerate([True, False]):
         packets_per_expand = N / (sketch_depth * sketch_width)
         if is_compressed:
-            packets_per_expand *= ((B-1) / B)
+            packets_per_expand *= ((B - 1) / B)
 
         command_gs = [
             "--type", "cellsketch",
@@ -1006,7 +1084,7 @@ def plot_gs_dynamic_expand_comparison(B: int, L: int, count_log: int):
 
     fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
 
-    expand_sizes = [sketch_width * B ** l for l in range(1, L)]
+    expand_sizes = [sketch_width * (B ** l) for l in range(1, L)]
     command_lines_expand = sum(
         [["--once", "expand", str((i + 1) * packets_per_modify), str(e)] for i, e in enumerate(expand_sizes)], [])
     command_lines_compress = sum([["--once", "compress", str((i + 1) * packets_per_modify), str(e)] for i, e in
@@ -1123,8 +1201,9 @@ def plot_gs_derivative(B: int, L: int, count_expand: int, count_log: int, figure
     plt.savefig(f'figures/{figure_name}')
     plt.close(fig)
 
-font = {'family' : 'sans-serif',
-        'size'   : 12}
+
+font = {'family': 'sans-serif',
+        'size': 12}
 
 plt.rc('font', **font)
 
@@ -1138,13 +1217,16 @@ if __name__ == "__main__":
     # plot_ip_distribution_zipf("fig_ip_distribution_zipf")
     # plot_ip_distribution("fig_ip_distribution")
     # plot_branching_factor([2, 4, 8], 16, "fig_branching_factor")
-    plot_gs_derivative(2, 3, 256, 16, "fig_gs_derivative")
+    # plot_gs_derivative(2, 3, 256, 16, "fig_gs_derivative")
     # plot_gs_undo_expand(B=2, L=3, max_cycles=4, granularity=128, count_log_memory=24, count_log_are=24, figure_name="fig_gs_undo_expand")
     # plot_gs_cms_static_comparison(2, 4, 16, "fig_gs_cms_static_comparison")
     # plot_gs_dcms_granular_comparison(2, 4, 2*5*272*100, 32, "fig_gs_dcms_granular_comparison")
     # plot_gs_skew_branching_factor([2, 4, 8, 12, 16], 16, "fig_gs_skew_branching_factor")
-    # plot_gs_expand_undo_compress_throughput(8, 6, "fig_gs_expand_undo_compress_throughput")
-    # plot_dcms_update_query_throughput(9, 7, "fig_dcms_update_query_throughput")
-    # plot_cms_update_query_throughput(7, 7, 5, 2, "fig_cms_throughput")
-    # plot_gs_update_query_throughput(9, 7, "fig_gs_update_query_throughput")
     # plot_dcms_memory_usage([2, 5], [1000, 500], 32, "fig_dcms_memory_usage")
+
+    #plot_gs_compress_throughput(8, 6, "fig_gs_compress_throughput")
+    # plot_gs_expand_undo_throughput(8, 6, "fig_gs_expand_undo_throughput")
+    plot_dcms_expand_undo_throughput(8, 6, "fig_dcms_expand_undo_throughput")
+    #plot_dcms_update_query_throughput(8, 6, "fig_dcms_update_query_throughput")
+    #plot_cms_update_query_throughput(6, 6, 5, 2, "fig_cms_throughput")
+    #plot_gs_update_query_throughput(8, 6, "fig_gs_update_query_throughput")

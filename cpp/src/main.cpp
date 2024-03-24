@@ -18,12 +18,11 @@ constexpr float delta = 0.01;
 constexpr int SEED = 0x1337C0D3;
 
 int DIST_BUCKET_COUNT = 32;
-int CM_WIDTH = ceil(exp(1) / epsilon);
-int CM_DEPTH = ceil(log(1 / delta));
+int CM_WIDTH = 272;
+int CM_DEPTH = 5;
 int BUCKET_COUNT = 32;
 int MEMORY_USAGE = 1024 * 1024 * 32; // 32MB
 int BRANCHING_FACTOR = 2;
-int LOG_TIME_REPEATS = 10;
 
 // --file path-- type dynamic-- repeat[command num][modify_size_random | modify_size_cyclic | expand | shrink | log_memory_usage | log_size | log_time][times]-- time
 // --packets [num] [packet0] ...
@@ -35,9 +34,10 @@ struct ActionTimer
 	int argument;
 	bool is_repeat;
 
-	ActionTimer(std::string _action_name, int _packets_per_action, bool _is_repeat) : action_name(_action_name),
+	ActionTimer(std::string _action_name, int _packets_per_action, bool _is_repeat, int _argument) : action_name(_action_name),
 																					  packets_per_action(_packets_per_action),
-																					  is_repeat(_is_repeat) {}
+																					  is_repeat(_is_repeat),
+																					argument(_argument){}
 };
 
 void loadPacketsFromArgs(const char *argv[], int &i, int packet_num, std::vector<uint32_t> *packets, int max_packets = -1)
@@ -185,15 +185,27 @@ void doPendingActions(Dictionary *dictionary, const std::vector<uint32_t> &packe
 			std::string action_name = action_timer.action_name;
 			if (action_name == "expand")
 			{
+				auto t_start = chrono_clock::now();
 				dictionary->expand(action_timer.argument);
+				duration duration_expand = chrono_clock::now() - t_start;
+				double expand_time = duration_expand.count();
+				std::cout << "{\"log_expand_time\":" << expand_time << ",\"index\":" << packet_index << "}," << std::endl;
 			}
             else if (action_name == "compress")
             {
+				auto t_start = chrono_clock::now();
                 dictionary->compress(action_timer.argument);
+				duration duration_compress = chrono_clock::now() - t_start;
+				double compress_time = duration_compress.count();
+				std::cout << "{\"log_compress_time\":" << compress_time << ",\"index\":" << packet_index << "}," << std::endl;
             }
 			else if (action_name == "shrink")
 			{
+				auto t_start = chrono_clock::now();
 				dictionary->shrink(action_timer.argument);
+				duration duration_shrink = chrono_clock::now() - t_start;
+				double shrink_time = duration_shrink.count();
+				std::cout << "{\"log_shrink_time\":" << shrink_time << ",\"index\":" << packet_index << "}," << std::endl;
 			}
 			else if (action_name == "log_memory_usage")
 			{
@@ -220,68 +232,25 @@ void doPendingActions(Dictionary *dictionary, const std::vector<uint32_t> &packe
 			}
 			else if (action_name == "log_update_time")
 			{
-				double update_time = 0;
-				auto unique_packets_so_far = uniquePacketsBeforeIndex(packets, packet_index + 1);
-				for (int i = 0; i < LOG_TIME_REPEATS; i++) {
-					auto t_start = chrono_clock::now();
-					for (const auto& packet : unique_packets_so_far)
-					{
-						dictionary->update(packet, 1);
-						dictionary->update(packet, -1);
-					}
-					duration duration_update = chrono_clock::now() - t_start;
-					update_time += duration_update.count() / (2 * (double)unique_packets_so_far.size());
+				auto t_start = chrono_clock::now();
+				for (const auto& packet : packets)
+				{
+					dictionary->update(packet, 1);
+					dictionary->update(packet, -1);
 				}
-				update_time /= LOG_TIME_REPEATS;
+				duration duration_update = chrono_clock::now() - t_start;
+				double update_time = duration_update.count() / (2.0 * packets.size());
 				std::cout << "{\"log_update_time\":" << update_time << ",\"index\":" << packet_index << "}," << std::endl;
-			}
-			else if (action_name == "log_compress_time")
-			{
-				int size = action_timer.argument;
-				double compress_time = 0;
-				for (int i = 0; i < LOG_TIME_REPEATS; i++) {
-					auto t_start = chrono_clock::now();
-					dictionary->compress(size);
-					duration duration_compress = chrono_clock::now() - t_start;
-					compress_time += duration_compress.count();
-				}
-				compress_time /= LOG_TIME_REPEATS;
-				std::cout << "{\"log_compress_time\":" << compress_time << ",\"index\":" << packet_index << "}," << std::endl;
-			}
-			else if (action_name == "log_expand_and_shrink_time")
-			{
-				int size = action_timer.argument;
-				double expand_time = 0;
-				double shrink_time = 0;
-				for (int i = 0; i < LOG_TIME_REPEATS; i++) {
-					auto t_start = chrono_clock::now();
-					dictionary->expand(size);
-					duration duration_expand = chrono_clock::now() - t_start;
-					expand_time += duration_expand.count();
-					t_start = chrono_clock::now();
-					dictionary->shrink(size);
-					duration duration_shrink = chrono_clock::now() - t_start;
-					shrink_time += duration_shrink.count();
-				}
-				expand_time /= LOG_TIME_REPEATS;
-				shrink_time /= LOG_TIME_REPEATS;
-				std::cout << "{\"log_expand_time\":" << expand_time << ",\"index\":" << packet_index << "}," << std::endl;
-				std::cout << "{\"log_shrink_time\":" << shrink_time << ",\"index\":" << packet_index << "}," << std::endl;
 			}
 			else if (action_name == "log_query_time")
 			{
-				double query_time = 0;
-				auto unique_packets_so_far = uniquePacketsBeforeIndex(packets, packet_index + 1);
-				for (int i = 0; i < LOG_TIME_REPEATS; i++) {
-					auto t_start = chrono_clock::now();
-					for (const auto& packet : unique_packets_so_far)
-					{
-						dictionary->query(packet);
-					}
-					duration duration_query = chrono_clock::now() - t_start;
-					query_time += duration_query.count() / ((double)unique_packets_so_far.size());
+				auto t_start = chrono_clock::now();
+				for (const auto& packet : packets)
+				{
+					dictionary->query(packet);
 				}
-				query_time /= LOG_TIME_REPEATS;
+				duration duration_query = chrono_clock::now() - t_start;
+				double query_time = duration_query.count() / ((double)packets.size());
 				std::cout << "{\"log_query_time\":" << query_time << ",\"index\":" << packet_index << "}," << std::endl;
 			}
 			else if (action_name == "log_unique_packet_count")
@@ -373,12 +342,12 @@ void proccess_input(int argc, const char *argv[])
 			bool is_repeat = "--repeat" == arg;
 			std::string action_name = argv[++i];
 			int packets_per_action = stoi(argv[++i]);
-			ActionTimer action_timer = ActionTimer(action_name, packets_per_action, is_repeat);
-            if (action_name == "expand" || action_name == "shrink" | action_name == "compress" | action_name == "log_compress_time" | action_name == "log_expand_and_shrink_time")
+			int argument = 0;
+			if (action_name == "expand" || action_name == "shrink" | action_name == "compress" | action_name == "log_compress_time" | action_name == "log_expand_and_shrink_time")
 			{
-				int _argument = stoi(argv[++i]);
-				action_timer.argument = _argument;
+				argument = stoi(argv[++i]);
 			}
+			ActionTimer action_timer = ActionTimer(action_name, packets_per_action, is_repeat, argument);
 			action_timers.push_back(action_timer);
 		}
 		else
@@ -400,7 +369,7 @@ void proccess_input(int argc, const char *argv[])
 
 void manual_argument()
 {
-    std::string cmd = "--limit_file ..\\pcaps\\capture.txt 10000000 --type cellsketch --width 272 --depth 5 --branching_factor 2 --repeat expand 26 1 --repeat log_average_relative_error 6250 --once log_memory_usage 0 --once log_average_relative_error 0 --once log_memory_usage 99999 --once log_average_relative_error 99999 --repeat log_memory_usage 6250 --repeat compress 26 1000000";
+    std::string cmd = "--limit_file ..\\pcaps\\capture.txt 1000 --type dynamic --width 272 --depth 5 --branching_factor 7 --once expand 0 1904 --once expand 1 13328 --once expand 2 93296 --once expand 3 653072 --once expand 4 4571504 --once expand 5 32000528 --once shrink 6 32000528";
 	std::vector<const char*> args;
 	std::istringstream iss(cmd);
 
@@ -424,5 +393,27 @@ void manual_argument()
 int main(int argc, const char *argv[])
 {
     // manual_argument();
-    proccess_input(argc, argv);
+    // proccess_input(argc, argv);
+	
+	int C = 100;
+	for (int B = 2; B <= 7; B++) {
+		for (int L = 1; L <= 6; L++) {
+			duration d;
+			for (int i = 0; i < C; i++) {
+				auto s = new DynamicSketch(CM_WIDTH, CM_DEPTH);
+				for (int l = 1; l < L; l++) {
+					int w = CM_WIDTH * pow(B, l);
+					s->expand(w);
+				}
+				int w = CM_WIDTH * pow(B, L);
+				auto t_start = chrono_clock::now();
+				s->expand(w);
+				d += chrono_clock::now() - t_start;
+				delete s;
+			}
+			double expand_time = d.count();
+			std::cout << expand_time / C << " ";
+		}
+		std::cout << std::endl;
+	}
 }

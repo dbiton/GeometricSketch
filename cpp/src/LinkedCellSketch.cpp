@@ -127,13 +127,11 @@ int LinkedCellSketch::undoExpand(int n)
     for (int i_child = counters.size()-1; i_child >= counters.size() - n; i_child--)
     {
         long actual_index_child = i_child - offset;
-        std::cout << "child:" << i_child << std::endl;
         int i_parent = getVectorOffsetParent(actual_index_child);
         if (i_parent == -1 || i_parent - offset < 0)
         {
             break;
         }
-        std::cout << "parent:" << i_parent << std::endl;
         long actual_index_parent = (long)i_parent - offset;
         counters[actual_index_parent] += counters[actual_index_child];
         counter_undo++;

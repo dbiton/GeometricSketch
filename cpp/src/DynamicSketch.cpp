@@ -16,6 +16,14 @@ DynamicSketch::DynamicSketch(int width, int depth) : Dictionary()
     sketches.push_back(CM_Init(width, depth, get_seed()));
 }
 
+DynamicSketch::~DynamicSketch()
+{
+    while (sketches.size() > 0) {
+        delete sketches.back();
+        sketches.pop_back();
+    }
+}
+
 void DynamicSketch::update(uint32_t item, int f)
 {
 	CM_type *sketch = sketches.back();
@@ -37,7 +45,11 @@ int DynamicSketch::expand(int width)
 	int depth = sketches.back()->depth;
 	int prev_width = sketches.back()->width;
 	assert(width > prev_width);
-    sketches.push_back(CM_Init(width, depth, get_seed()));
+    CM_type* sketch = CM_Init(width, depth, get_seed());
+    if (!sketch) {
+        throw std::runtime_error("DynamicSketch::expand CM_Init failed");
+    }
+    sketches.push_back(sketch);
     return width;
 }
 
