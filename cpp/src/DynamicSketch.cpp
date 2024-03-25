@@ -44,10 +44,9 @@ int DynamicSketch::expand(int width)
 {
 	int depth = sketches.back()->depth;
 	int prev_width = sketches.back()->width;
-	assert(width > prev_width);
     CM_type* sketch = CM_Init(width, depth, get_seed());
-    if (!sketch) {
-        throw std::runtime_error("DynamicSketch::expand CM_Init failed");
+    if (!sketch || width <= prev_width) {
+        throw std::runtime_error("DynamicSketch runtime error");
     }
     sketches.push_back(sketch);
     return width;
