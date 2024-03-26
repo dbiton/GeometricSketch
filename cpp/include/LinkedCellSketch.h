@@ -11,7 +11,18 @@ class LinkedCellSketch : public Dictionary
     unsigned width;
     unsigned depth;
 
-    MultiHash multihash;
+    int consumed_bits;
+    uint64_t seed;
+    uint64_t hash;
+    uint64_t key;
+
+    uint64_t subhash_mask;
+    int bits_per_subhash;
+    uint64_t subhash_modulus;
+
+    uint64_t first_subhash_mask;
+    int bits_per_first_subhash;
+    uint64_t first_subhash_modulus;
 public:
     LinkedCellSketch(int width, int depth, int branching_factor);
     ~LinkedCellSketch();
@@ -49,4 +60,11 @@ private:
 
     int getLayerRowOffset(int layer_index) const;
     int getVectorOffsetFirstChild(int vector_offset) const;
+
+    void initialize(uint64_t _key, uint64_t _seed);
+    void setFirstSubHashModulus(uint64_t _first_subhash_modulus);
+
+    void setSubHashModulus(uint64_t _subhash_modulus);
+    uint64_t next();
+    uint64_t first();
 };

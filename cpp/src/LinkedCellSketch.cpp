@@ -1,5 +1,49 @@
 #include "LinkedCellSketch.h"
-#include "MultiHash.h"
+
+#pragma once
+
+#include <cmath>
+#include <cstdint>
+#include "xxhash.h"
+
+
+void LinkedCellSketch::setSubHashModulus(uint64_t _subhash_modulus){
+    bits_per_subhash = std::log2(_subhash_modulus);
+    subhash_modulus = _subhash_modulus;
+    subhash_mask = (1UL << bits_per_subhash) - 1UL;
+}
+
+void LinkedCellSketch::setFirstSubHashModulus(uint64_t _first_subhash_modulus){
+    bits_per_first_subhash = std::log2(_first_subhash_modulus);
+    first_subhash_modulus = _first_subhash_modulus;
+    first_subhash_mask = (1UL << bits_per_first_subhash) - 1UL;
+}
+
+void LinkedCellSketch::initialize(uint64_t _key, uint64_t _seed){
+    consumed_bits = 8 * sizeof(hash); // to make sure hash is called on next
+    key = _key;
+    seed = _seed;
+}
+
+uint64_t LinkedCellSketch::first(){
+    hash = XXH64(&key, sizeof(uint64_t), seed++);
+    uint64_t result = (hash & first_subhash_mask) % first_subhash_modulus;
+    hash = hash >> bits_per_first_subhash;
+    consumed_bits = bits_per_first_subhash;
+    return result;
+}
+
+uint64_t LinkedCellSketch::next(){
+    if (consumed_bits + bits_per_subhash > 8 * sizeof(hash)){
+        hash = XXH64(&key, sizeof(uint64_t), seed++);
+        consumed_bits = 0;
+    }
+    uint64_t result = (hash & subhash_mask) % subhash_modulus;
+    hash = hash >> bits_per_subhash;
+    consumed_bits += bits_per_subhash;
+    return result;
+}
+
 
 LinkedCellSketch::LinkedCellSketch(int width, int depth, int branching_factor) : 
     Dictionary(),
@@ -7,10 +51,20 @@ LinkedCellSketch::LinkedCellSketch(int width, int depth, int branching_factor) :
     depth(depth),
     branching_factor(branching_factor),
     offset(0),
-    counters(width * depth, 0)
+    counters(width * depth, 0),
+    consumed_bits(-1),
+    seed(-1),
+    hash(-1),
+    key(-1),
+    subhash_mask(-1),
+    bits_per_subhash(-1),
+    subhash_modulus(-1),
+    first_subhash_mask(-1),
+    bits_per_first_subhash(-1),
+    first_subhash_modulus(-1)
 {
-    multihash.setFirstSubHashModulus(width);
-    multihash.setSubHashModulus(branching_factor);
+    setFirstSubHashModulus(width);
+    setSubHashModulus(branching_factor);
     /*
         Counter Layer Index - row_index, layer_index, layer_offset
         Counter Row Index - row_index, row_offset
@@ -37,10 +91,10 @@ int LinkedCellSketch::getLastLayerVectorOffsetFromKey(
     uint64_t key,
     uint64_t row_index
 ) {
-    multihash.initialize(key, row_index);
+    initialize(key, row_index);
     int prev_layer_index = 0;
     int prev_layer_begin_counter_index = 0;
-    int prev_row_offset = multihash.first();
+    int prev_row_offset = first();
     int vector_offset = rowOffsetToVectorOffset(row_index, prev_row_offset);
     int prev_B_pow_layer_index = 1;
     int prev_vector_offset = vector_offset;
@@ -61,7 +115,7 @@ int LinkedCellSketch::getNextLayerVectorOffsetFromKey(
     int B = (int)branching_factor;
     int W = (int)width;
     int layer_begin_counter_index = prev_layer_row_offset + W * prev_B_pow_layer_index;
-    int h = multihash.next();
+    int h = next();
     int counter_index = (prev_counter_row_offset - prev_layer_row_offset) * B + h + layer_begin_counter_index;
     prev_layer_row_offset = layer_begin_counter_index;
     prev_counter_row_offset = counter_index;
@@ -77,10 +131,10 @@ int LinkedCellSketch::query(uint32_t _key)
     uint32_t estimate = UINT32_MAX;
     for (int row_index = 0; row_index < depth; row_index++)
     {
-        multihash.initialize(key, row_index);
+        initialize(key, row_index);
         uint32_t current_estimate = 0;
         int prev_layer_begin_counter_index = 0;
-        int prev_row_offset = multihash.first();
+        int prev_row_offset = first();
         int prev_B_pow_layer_index = 1;
         int vector_offset = rowOffsetToVectorOffset(row_index, prev_row_offset);
         while (vector_offset < counters.size() + offset){

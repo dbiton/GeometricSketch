@@ -392,21 +392,22 @@ void manual_argument()
 
 int main(int argc, const char *argv[])
 {
-    manual_argument();
-    // proccess_input(argc, argv);
+    // manual_argument();
+    proccess_input(argc, argv);
+
 
     /*
     int sum = 0;
 	int key = 0;
 
     auto t_start = chrono_clock::now();
-    for(int i=0; i<1000000; i++){
+    for(int i=0; i<10000000; i++){
         MultiHash mh;
         mh.initialize(sum, 0);
         mh.setFirstSubHashModulus(32);
         mh.setSubHashModulus(16);
         sum += mh.first();
-        for (int j=0; j<9; j++){
+        for (int j=0; j<0; j++){
             sum += mh.next();
         }
     }
