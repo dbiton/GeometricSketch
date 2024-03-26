@@ -147,7 +147,7 @@ void CM_Update(CM_type * cm, unsigned int item, int diff)
   if (!cm) return;
   cm->count+=diff;
   for (j=0;j<cm->depth;j++)
-    cm->counts[j][XXH32(&item, sizeof(item), j) % cm->width]+=diff;
+    cm->counts[j][XXH64(&item, sizeof(item), j) % cm->width]+=diff;
   // this can be done more efficiently if the width is a power of two
 }
 
@@ -157,9 +157,9 @@ int CM_PointEst(CM_type * cm, unsigned int query)
   int j, ans;
 
   if (!cm) return 0;
-  ans=cm->counts[0][XXH32(&query, sizeof(query), 0) % cm->width];
+  ans=cm->counts[0][XXH64(&query, sizeof(query), 0) % cm->width];
   for (j=1;j<cm->depth;j++)
-    ans=min(ans,cm->counts[j][XXH32(&query, sizeof(query), j) %cm->width]);
+    ans=min(ans,cm->counts[j][XXH64(&query, sizeof(query), j) %cm->width]);
   // this can be done more efficiently if the width is a power of two
   return (ans);
 }
@@ -174,7 +174,7 @@ int CM_PointMed(CM_type * cm, unsigned int query)
   if (!cm) return 0;
   ans=(int *) calloc(1+cm->depth,sizeof(int));
   for (j=0;j<cm->depth;j++)
-    ans[j+1]=cm->counts[j][XXH32(&query, sizeof(query), j)%cm->width];
+    ans[j+1]=cm->counts[j][XXH64(&query, sizeof(query), j)%cm->width];
 
   if (cm->depth==1)
     result=ans[1];
@@ -274,7 +274,7 @@ int CM_Residue(CM_type * cm, unsigned int * Q)
       for (i=0;i<cm->width;i++)
 	bitmap[i]=0;
       for (i=1;i<Q[0];i++)
-	bitmap[XXH32(&Q[i], sizeof(Q[i]), j) % cm->width]=1;
+    bitmap[XXH64(&Q[i], sizeof(Q[i]), j) % cm->width]=1;
       for (i=0;i<cm->width;i++)
 	if (bitmap[i]==0) nextest+=cm->counts[j][i];
       estimate=max(estimate,nextest);

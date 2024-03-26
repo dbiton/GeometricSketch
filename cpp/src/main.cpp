@@ -393,8 +393,8 @@ void manual_argument()
 int main(int argc, const char *argv[])
 {
     // manual_argument();
-    // proccess_input(argc, argv);
-	
+    proccess_input(argc, argv);
+	/*
 	int C = 100;
 	for (int B = 2; B <= 7; B++) {
 		for (int L = 1; L <= 6; L++) {
@@ -415,5 +415,5 @@ int main(int argc, const char *argv[])
             std::cout << (expand_time / C) << " ";
 		}
 		std::cout << std::endl;
-	}
+	}*/
 }

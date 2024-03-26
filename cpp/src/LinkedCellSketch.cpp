@@ -212,7 +212,7 @@ void LinkedCellSketch::printRows() const
 int LinkedCellSketch::hash(uint32_t key, uint16_t row_index, uint16_t layer_index) const
 {
     uint32_t seed = ((uint32_t)row_index << 16) + (uint32_t)layer_index;
-    return XXH32(&key, sizeof(key), seed);
+    return XXH64(&key, sizeof(key), seed);
 }
 
 int LinkedCellSketch::rowOffsetToLayerIndex(int row_offset, int& layer_offset) const
