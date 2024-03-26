@@ -66,7 +66,7 @@ void DynamicSketch::mergeCountMin(CM_type* cm0, CM_type* cm1){
         for (int col0=0; col0<width0; col0++){
             int col1_begin =  std::floor(factor * col0);
             for (int col1 = col1_begin; col1 < factor + col1_begin; col1++){
-                cm0->counts[row][col0] += cm1->counts[row][col1];
+                cm0->counts->operator[](row * width0 + col0) += cm1->counts->operator[](row * width1 + col1);
             }
         }
     }
