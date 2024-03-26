@@ -1,5 +1,5 @@
 #include "LinkedCellSketch.h"
-#include "xxhash.h"
+#include "MultiHash.h"
 
 LinkedCellSketch::LinkedCellSketch(int width, int depth, int branching_factor) : 
     Dictionary(),
@@ -9,6 +9,8 @@ LinkedCellSketch::LinkedCellSketch(int width, int depth, int branching_factor) :
     offset(0),
     counters(width * depth, 0)
 {
+    multihash.setFirstSubHashModulus(width);
+    multihash.setSubHashModulus(branching_factor);
     /*
         Counter Layer Index - row_index, layer_index, layer_offset
         Counter Row Index - row_index, row_offset
@@ -20,8 +22,9 @@ LinkedCellSketch::~LinkedCellSketch()
 {
 }
 
-void LinkedCellSketch::update(uint32_t key, int amount)
+void LinkedCellSketch::update(uint32_t _key, int amount)
 {
+    uint64_t key = _key;
     for (int row_index = 0; row_index < depth; row_index++)
     {
         int vector_offset = getLastLayerVectorOffsetFromKey(key, row_index);
@@ -31,37 +34,35 @@ void LinkedCellSketch::update(uint32_t key, int amount)
 }
 
 int LinkedCellSketch::getLastLayerVectorOffsetFromKey(
-    uint32_t key,
-    uint16_t row_index
+    uint64_t key,
+    uint64_t row_index
 ) {
+    multihash.initialize(key, row_index);
     int prev_layer_index = 0;
     int prev_layer_begin_counter_index = 0;
-    int prev_row_offset = hash(key, row_index, 0) % width;
+    int prev_row_offset = multihash.first();
     int vector_offset = rowOffsetToVectorOffset(row_index, prev_row_offset);
     int prev_B_pow_layer_index = 1;
     int prev_vector_offset = vector_offset;
     while (vector_offset < counters.size() + offset) {
         prev_vector_offset = vector_offset;
-        vector_offset = getNextLayerVectorOffsetFromKey(key, row_index, prev_layer_index,
-            prev_layer_begin_counter_index, prev_row_offset, prev_B_pow_layer_index);
+        vector_offset = getNextLayerVectorOffsetFromKey(key, row_index, prev_layer_begin_counter_index, prev_row_offset, prev_B_pow_layer_index);
     }
     return prev_vector_offset;
 }
 
 int LinkedCellSketch::getNextLayerVectorOffsetFromKey(
-    uint32_t key, 
-    uint16_t row_index, 
-    int& prev_layer_index, 
+    uint64_t key,
+    uint64_t row_index,
     int& prev_layer_row_offset,
     int& prev_counter_row_offset,
     int& prev_B_pow_layer_index
-) const{
+){
     int B = (int)branching_factor;
     int W = (int)width;
     int layer_begin_counter_index = prev_layer_row_offset + W * prev_B_pow_layer_index;
-    int h = hash(key, row_index, prev_layer_index + 1) % B;
+    int h = multihash.next();
     int counter_index = (prev_counter_row_offset - prev_layer_row_offset) * B + h + layer_begin_counter_index;
-    prev_layer_index += 1;
     prev_layer_row_offset = layer_begin_counter_index;
     prev_counter_row_offset = counter_index;
     prev_B_pow_layer_index *= B;
@@ -69,16 +70,17 @@ int LinkedCellSketch::getNextLayerVectorOffsetFromKey(
     return vector_offset;
 }
 
-int LinkedCellSketch::query(uint32_t key)
+int LinkedCellSketch::query(uint32_t _key)
 {
+    uint64_t key = _key;
     int O = offset;
     uint32_t estimate = UINT32_MAX;
     for (int row_index = 0; row_index < depth; row_index++)
     {
+        multihash.initialize(key, row_index);
         uint32_t current_estimate = 0;
-        int prev_layer_index = 0;
         int prev_layer_begin_counter_index = 0;
-        int prev_row_offset = hash(key, row_index, 0) % width;
+        int prev_row_offset = multihash.first();
         int prev_B_pow_layer_index = 1;
         int vector_offset = rowOffsetToVectorOffset(row_index, prev_row_offset);
         while (vector_offset < counters.size() + offset){
@@ -86,7 +88,7 @@ int LinkedCellSketch::query(uint32_t key)
                 long actual_index = (long)vector_offset - O;
                 current_estimate += counters[actual_index];
             }
-            vector_offset = getNextLayerVectorOffsetFromKey(key, row_index, prev_layer_index,
+           vector_offset = getNextLayerVectorOffsetFromKey(key, row_index,
                 prev_layer_begin_counter_index, prev_row_offset, prev_B_pow_layer_index);
         }
         estimate = std::min(estimate, current_estimate);
@@ -208,12 +210,6 @@ void LinkedCellSketch::printRows() const
         }
     }
 }*/
-
-int LinkedCellSketch::hash(uint32_t key, uint16_t row_index, uint16_t layer_index) const
-{
-    uint32_t seed = ((uint32_t)row_index << 16) + (uint32_t)layer_index;
-    return XXH32(&key, sizeof(key), seed);
-}
 
 int LinkedCellSketch::rowOffsetToLayerIndex(int row_offset, int& layer_offset) const
 {

@@ -369,7 +369,7 @@ void proccess_input(int argc, const char *argv[])
 
 void manual_argument()
 {
-    std::string cmd = "--limit_file ..\\pcaps\\capture.txt 1000 --type dynamic --width 272 --depth 5 --branching_factor 7 --once expand 0 1904 --once expand 1 13328 --once expand 2 93296 --once expand 3 653072 --once expand 4 4571504 --once expand 5 32000528 --once shrink 6 32000528";
+    std::string cmd = "--limit_file ../../pcaps/capture.txt 1000000 --type cellsketch --width 272 --depth 5 --branching_factor 7 --once expand 0 123456 --once log_query_time 999999";
 	std::vector<const char*> args;
 	std::istringstream iss(cmd);
 
@@ -392,28 +392,50 @@ void manual_argument()
 
 int main(int argc, const char *argv[])
 {
-    // manual_argument();
+    manual_argument();
     // proccess_input(argc, argv);
-	
-	int C = 100;
-	for (int B = 2; B <= 7; B++) {
-		for (int L = 1; L <= 6; L++) {
-            duration d = duration::zero();
-			for (int i = 0; i < C; i++) {
-				auto s = new DynamicSketch(CM_WIDTH, CM_DEPTH);
-				for (int l = 1; l < L; l++) {
-					int w = CM_WIDTH * pow(B, l);
-					s->expand(w);
-				}
-				int w = CM_WIDTH * pow(B, L);
-				auto t_start = chrono_clock::now();
-				s->expand(w);
-				d += chrono_clock::now() - t_start;
-				delete s;
-			}
-			double expand_time = d.count();
-            std::cout << (expand_time / C) << " ";
-		}
-		std::cout << std::endl;
-	}
+
+    /*
+    int sum = 0;
+	int key = 0;
+
+    auto t_start = chrono_clock::now();
+    for(int i=0; i<1000000; i++){
+        MultiHash mh;
+        mh.initialize(sum, 0);
+        mh.setFirstSubHashModulus(32);
+        mh.setSubHashModulus(16);
+        sum += mh.first();
+        for (int j=0; j<9; j++){
+            sum += mh.next();
+        }
+    }
+    std::chrono::duration<float> d = chrono_clock::now() - t_start;
+    std::cout << "MultiHash " << 1.0 / d.count() << " MOPS" << std::endl;
+
+    t_start = chrono_clock::now();
+    for(int i=0; i<10000000; i++){
+        auto v = XXH3_128bits_withSeed(&key, sizeof(uint64_t), sum);
+        sum += v.low64;
+    }
+    d = chrono_clock::now() - t_start;
+    std::cout << "XXH128 " << 1.0 / d.count() << " MOPS" << std::endl;
+
+    t_start = chrono_clock::now();
+    for(int i=0; i<10000000; i++){
+        auto v = XXH64(&key, sizeof(uint64_t), sum);
+        sum += v;
+    }
+    d = chrono_clock::now() - t_start;
+    std::cout << "XXH64 " << 1.0 / d.count() << " MOPS" << std::endl;
+
+    t_start = chrono_clock::now();
+    for(int i=0; i<10000000; i++){
+        auto v = XXH32(&key, sizeof(uint64_t), sum);
+        sum += v;
+    }
+    d = chrono_clock::now() - t_start;
+    std::cout << "XXH32 " << 1.0 / d.count() << " MOPS" << std::endl;
+    std::cout << sum << std::endl;
+    */
 }
