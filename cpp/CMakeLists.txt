@@ -23,4 +23,5 @@ add_executable(DynamicSketch
     src/rand48.cc
     src/Dictionary.cpp
     src/LinkedCellSketch.cpp
+    src/MultiHash.cpp
 )
