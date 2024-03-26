@@ -29,6 +29,7 @@
     <ClInclude Include="include\HeavyPart.h" />
     <ClInclude Include="include\LightPart.h" />
     <ClInclude Include="include\LinkedCellSketch.h" />
+    <ClInclude Include="include\MultiHash.h" />
     <ClInclude Include="include\Murmurhash.h" />
     <ClInclude Include="include\NaiveSketch.h" />
     <ClInclude Include="include\param.h" />
@@ -46,6 +47,7 @@
     <ClCompile Include="src\LightPart.cpp" />
     <ClCompile Include="src\LinkedCellSketch.cpp" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\MultiHash.cpp" />
     <ClCompile Include="src\Murmurhash.cpp" />
     <ClCompile Include="src\NaiveSketch.cpp" />
     <ClCompile Include="src\prng.cc" />

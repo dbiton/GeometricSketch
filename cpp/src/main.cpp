@@ -369,7 +369,7 @@ void proccess_input(int argc, const char *argv[])
 
 void manual_argument()
 {
-    std::string cmd = "--limit_file ..\\pcaps\\capture.txt 1000 --type dynamic --width 272 --depth 5 --branching_factor 7 --once expand 0 1904 --once expand 1 13328 --once expand 2 93296 --once expand 3 653072 --once expand 4 4571504 --once expand 5 32000528 --once shrink 6 32000528";
+    std::string cmd = "--limit_file ../pcaps/capture.txt 37000000 --type cellsketch --width 272 --depth 5 --branching_factor 7 --once expand 0 123456 --once log_query_time 36900000";
 	std::vector<const char*> args;
 	std::istringstream iss(cmd);
 
@@ -394,26 +394,39 @@ int main(int argc, const char *argv[])
 {
     // manual_argument();
     proccess_input(argc, argv);
+	
+	
 	/*
-	int C = 100;
-	for (int B = 2; B <= 7; B++) {
-		for (int L = 1; L <= 6; L++) {
-            duration d = duration::zero();
-			for (int i = 0; i < C; i++) {
-				auto s = new DynamicSketch(CM_WIDTH, CM_DEPTH);
-				for (int l = 1; l < L; l++) {
-					int w = CM_WIDTH * pow(B, l);
-					s->expand(w);
-				}
-				int w = CM_WIDTH * pow(B, L);
-				auto t_start = chrono_clock::now();
-				s->expand(w);
-				d += chrono_clock::now() - t_start;
-				delete s;
-			}
-			double expand_time = d.count();
-            std::cout << (expand_time / C) << " ";
+    uint64_t sum = 0;
+	int key = 0;
+
+	double M_OP = 100;
+	int layer_count = 6;
+
+	MultiHash mh;
+	mh.setFirstSubHashModulus(16);
+	mh.setSubHashModulus(16);
+    auto t_start = chrono_clock::now();
+	for (int i = 0; i < M_OP * 1000000 / layer_count; i++) {
+		mh.initialize(key, i);
+		auto vf = mh.first();
+		sum += vf;
+		for (int j = 0; j < layer_count - 1; j++) {
+			auto v = mh.next();
+			sum += v;
 		}
-		std::cout << std::endl;
-	}*/
+	}
+    std::chrono::duration<float> d = chrono_clock::now() - t_start;
+    std::cout << "MultiHash " << M_OP / d.count() << " MOPS" << std::endl;
+
+    t_start = chrono_clock::now();
+    for(int i=0; i< M_OP * 1000000; i++){
+        auto v = XXH64(&key, sizeof(uint64_t), i);
+        sum += v;
+    }
+    d = chrono_clock::now() - t_start;
+    std::cout << "XXH64 " << M_OP / d.count() << " MOPS" << std::endl;
+
+
+	return sum;*/
 }

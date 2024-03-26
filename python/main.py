@@ -23,7 +23,7 @@ else:
     filepath_executable = "../cpp/build-DynamicSketch-Desktop-Release/DynamicSketch"
 
 COUNT_PACKETS_MAX = 37700000
-COUNT_PACKETS = min(10000, COUNT_PACKETS_MAX)
+COUNT_PACKETS = min(100000, COUNT_PACKETS_MAX)
 
 
 def execute_command(arguments: list, packets_path=filepath_packets):
@@ -1224,9 +1224,9 @@ if __name__ == "__main__":
     # plot_gs_skew_branching_factor([2, 4, 8, 12, 16], 16, "fig_gs_skew_branching_factor")
     # plot_dcms_memory_usage([2, 5], [1000, 500], 32, "fig_dcms_memory_usage")
 
-    plot_gs_compress_throughput(7, 5, "fig_gs_compress_throughput")
-    plot_gs_expand_undo_throughput(7, 5, "fig_gs_expand_undo_throughput")
-    plot_dcms_expand_undo_throughput(7, 5, "fig_dcms_expand_undo_throughput")
+    # plot_gs_compress_throughput(7, 5, "fig_gs_compress_throughput")
+    # plot_gs_expand_undo_throughput(7, 5, "fig_gs_expand_undo_throughput")
+    # plot_dcms_expand_undo_throughput(7, 5, "fig_dcms_expand_undo_throughput")
     plot_dcms_update_query_throughput(7, 5, "fig_dcms_update_query_throughput")
     plot_cms_update_query_throughput(5, 5, 5, 2, "fig_cms_throughput")
     plot_gs_update_query_throughput(7, 5, "fig_gs_update_query_throughput")

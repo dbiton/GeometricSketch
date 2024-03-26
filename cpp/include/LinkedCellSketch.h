@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Dictionary.h"
+#include "MultiHash.h"
 
 class LinkedCellSketch : public Dictionary
 {
@@ -9,6 +10,8 @@ class LinkedCellSketch : public Dictionary
     unsigned branching_factor;
     unsigned width;
     unsigned depth;
+
+    MultiHash multihash;
 public:
     LinkedCellSketch(int width, int depth, int branching_factor);
     ~LinkedCellSketch();
@@ -23,21 +26,20 @@ public:
 
     int getMemoryUsage() const;
 private:
-    int hash(uint32_t key, uint16_t row_index, uint16_t layer_index) const;
+    //int hash(uint32_t key, uint16_t row_index, uint16_t layer_index) const;
     
     int getLastLayerVectorOffsetFromKey(
-        uint32_t key,
-        uint16_t row_index
+        uint64_t key,
+        uint64_t row_index
     );
 
     int getNextLayerVectorOffsetFromKey(
-        uint32_t key,
-        uint16_t row_index,
-        int& layer_index,
+        uint64_t key,
+        uint64_t row_index,
         int& layer_begin_counter_index,
         int& last_counter_index,
         int& B_pow_layer_index
-    ) const;
+    );
 
     int getVectorOffsetParent(int counter_index) const;
 
