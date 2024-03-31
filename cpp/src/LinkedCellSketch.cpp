@@ -124,7 +124,7 @@ int LinkedCellSketch::undoExpand(int n)
     int counter_undo = 0;
     // start from the last counter
     //std::cout << "undoExpand:" << std::endl;
-    for (int i_child = counters.size()-1; i_child >= counters.size() - n; i_child--)
+    for (int i_child = counters.size() - 1; i_child >= (int)counters.size() - n; i_child--)
     {
         long actual_index_child = i_child - offset;
         int i_parent = getVectorOffsetParent(actual_index_child);
@@ -137,6 +137,7 @@ int LinkedCellSketch::undoExpand(int n)
         counter_undo++;
     }
     counters.resize(counters.size() - counter_undo);
+
     return counter_undo;
 }
 
@@ -164,6 +165,13 @@ int LinkedCellSketch::compress(int n)
     counters.erase(counters.begin(), counters.begin() + compress_counter);
     offset += compress_counter;
     return compress_counter;
+}
+
+void LinkedCellSketch::print()
+{
+    for (auto counter : counters) {
+        std::cout << counter << std::endl;
+    }
 }
 
 int LinkedCellSketch::expand(int n)
@@ -209,9 +217,9 @@ void LinkedCellSketch::printRows() const
     }
 }*/
 
-int LinkedCellSketch::hash(uint32_t key, uint16_t row_index, uint16_t layer_index) const
+uint64_t LinkedCellSketch::hash(uint32_t key, uint32_t row_index, uint32_t layer_index) const
 {
-    uint32_t seed = ((uint32_t)row_index << 16) + (uint32_t)layer_index;
+    uint64_t seed = ((uint64_t)layer_index << 32) | row_index;
     return XXH64(&key, sizeof(key), seed);
 }
 

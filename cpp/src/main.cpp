@@ -23,6 +23,7 @@ int CM_DEPTH = 5;
 int BUCKET_COUNT = 32;
 int MEMORY_USAGE = 1024 * 1024 * 32; // 32MB
 int BRANCHING_FACTOR = 2;
+bool DCMS_USE_SAME_SEED = false;
 
 // --file path-- type dynamic-- repeat[command num][modify_size_random | modify_size_cyclic | expand | shrink | log_memory_usage | log_size | log_time][times]-- time
 // --packets [num] [packet0] ...
@@ -91,7 +92,7 @@ Dictionary *createDictionary(std::string type)
 		return new LinkedCellSketch(CM_WIDTH, CM_DEPTH, BRANCHING_FACTOR);
 	}
     else if (type == "dynamic"){
-        return new DynamicSketch(CM_WIDTH, CM_DEPTH);
+        return new DynamicSketch(CM_WIDTH, CM_DEPTH, DCMS_USE_SAME_SEED);
     }
 	else
 	{
@@ -337,6 +338,10 @@ void proccess_input(int argc, const char *argv[])
 		{
 			CM_DEPTH = stoi(argv[++i]);
 		}
+		else if (arg == "--dcms_same_seed")
+		{
+			DCMS_USE_SAME_SEED = stoi(argv[++i]);
+		}
 		else if (arg == "--repeat" || arg == "--once")
 		{
 			bool is_repeat = "--repeat" == arg;
@@ -369,7 +374,8 @@ void proccess_input(int argc, const char *argv[])
 
 void manual_argument()
 {
-    std::string cmd = "--limit_file ..\\pcaps\\capture.txt 1000 --type dynamic --width 272 --depth 5 --branching_factor 7 --once expand 0 1904 --once expand 1 13328 --once expand 2 93296 --once expand 3 653072 --once expand 4 4571504 --once expand 5 32000528 --once shrink 6 32000528";
+
+	std::string cmd = "--limit_file ..\\pcaps\\capture.txt 100000 --type cellsketch --width 272 --depth 5 --branching_factor 2 --repeat log_average_relative_error 4166 --once log_memory_usage 0 --once log_average_relative_error 0 --once log_memory_usage 99999 --once log_average_relative_error 99999 --repeat log_memory_usage 4166 --once expand 12500 2720 --once expand 25000 5440 --once expand 37500 10880 --once shrink 62500 10880 --once shrink 75000 5440 --once shrink 87500 2720";
 	std::vector<const char*> args;
 	std::istringstream iss(cmd);
 
@@ -394,26 +400,4 @@ int main(int argc, const char *argv[])
 {
     // manual_argument();
     proccess_input(argc, argv);
-	/*
-	int C = 100;
-	for (int B = 2; B <= 7; B++) {
-		for (int L = 1; L <= 6; L++) {
-            duration d = duration::zero();
-			for (int i = 0; i < C; i++) {
-				auto s = new DynamicSketch(CM_WIDTH, CM_DEPTH);
-				for (int l = 1; l < L; l++) {
-					int w = CM_WIDTH * pow(B, l);
-					s->expand(w);
-				}
-				int w = CM_WIDTH * pow(B, L);
-				auto t_start = chrono_clock::now();
-				s->expand(w);
-				d += chrono_clock::now() - t_start;
-				delete s;
-			}
-			double expand_time = d.count();
-            std::cout << (expand_time / C) << " ";
-		}
-		std::cout << std::endl;
-	}*/
 }

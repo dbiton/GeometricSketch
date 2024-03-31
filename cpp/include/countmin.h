@@ -9,6 +9,7 @@
 
 typedef struct CM_type{
   int64_t count;
+  uint64_t seed;
   int depth;
   int width;
   int ** counts;

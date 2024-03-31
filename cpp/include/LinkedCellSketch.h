@@ -20,10 +20,10 @@ public:
     int expand(int n);
     int undoExpand(int n);
     int compress(int n);
-
+    void print();
     int getMemoryUsage() const;
 private:
-    int hash(uint32_t key, uint16_t row_index, uint16_t layer_index) const;
+    uint64_t hash(uint32_t key, uint32_t row_index, uint32_t layer_index) const;
     
     int getLastLayerVectorOffsetFromKey(
         uint32_t key,

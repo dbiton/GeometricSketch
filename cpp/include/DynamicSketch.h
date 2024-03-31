@@ -6,8 +6,9 @@
 class DynamicSketch : public Dictionary
 {
 	std::vector<CM_type*> sketches;
+	bool is_same_seed;
 public:
-    DynamicSketch(int width, int depth);
+    DynamicSketch(int width, int depth, bool is_same_seed);
 	~DynamicSketch();
 
 	void update(uint32_t key, int amount);
@@ -18,6 +19,8 @@ public:
 
     int getSize() const;
     int getMemoryUsage() const; // minimum
+
+	void print();
 private:
 	void mergeCountMin(CM_type* cm0, CM_type* cm1);
 };

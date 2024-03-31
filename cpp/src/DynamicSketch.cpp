@@ -1,19 +1,20 @@
 #include "DynamicSketch.h"
 
-#define IS_SAME_SEED 0
-
-int get_seed(){
-    if (IS_SAME_SEED){
-        return 0xDEADBEEF;
+int get_seed(bool is_same_seed){
+    if (is_same_seed){
+        return 0;
     }
     else{
-        return rand();
+        int seed = rand();
+        return seed;
     }
 }
 
-DynamicSketch::DynamicSketch(int width, int depth) : Dictionary()
+DynamicSketch::DynamicSketch(int width, int depth, bool _is_same_seed) : 
+    Dictionary(),
+    is_same_seed(_is_same_seed)
 {
-    sketches.push_back(CM_Init(width, depth, get_seed()));
+    sketches.push_back(CM_Init(width, depth, get_seed(is_same_seed)));
 }
 
 DynamicSketch::~DynamicSketch()
@@ -44,7 +45,7 @@ int DynamicSketch::expand(int width)
 {
 	int depth = sketches.back()->depth;
 	int prev_width = sketches.back()->width;
-    CM_type* sketch = CM_Init(width, depth, get_seed());
+    CM_type* sketch = CM_Init(width, depth, get_seed(is_same_seed));
     if (!sketch || width <= prev_width) {
         throw std::runtime_error("DynamicSketch runtime error");
     }
@@ -59,12 +60,12 @@ int DynamicSketch::getSize() const{
 void DynamicSketch::mergeCountMin(CM_type* cm0, CM_type* cm1){
     int width0 = cm0->width;
     int width1 = cm1->width;
-    double factor = (double)width1 / (double)width0;
+    assert(width1 % width0 == 0);
+    int factor = width1 / width0;
     int depth = cm0->depth;
     for (int row=0; row < depth; row++){
         for (int col0=0; col0<width0; col0++){
-            int col1_begin =  std::floor(factor * col0);
-            for (int col1 = col1_begin; col1 < factor + col1_begin; col1++){
+            for (int col1 = col0; col1 < width1; col1+=width0){
                 cm0->counts[row][col0] += cm1->counts[row][col1];
             }
         }
@@ -75,18 +76,30 @@ void DynamicSketch::mergeCountMin(CM_type* cm0, CM_type* cm1){
 int DynamicSketch::shrink(int n)
 {
     int bytes_removed = 0;
-    int sketchCount = getSize();
-    if (sketchCount > 1){
+    while (getSize() > 1){
         auto sketch_large = sketches.back();
-        auto sketch_small = sketches[sketchCount-2];
+        auto sketch_small = sketches[getSize()-2];
         if (sketch_large->width <= n) {
-            bytes_removed = sketch_large->width;
+            n -= sketch_large->width;
+            bytes_removed = sketch_large->depth * sketch_large->width;
             mergeCountMin(sketch_small, sketch_large);
             CM_Destroy(sketch_large);
             sketches.pop_back();
         }
+        else {
+            break;
+            break;
+        }
     }
     return bytes_removed;
+}
+
+void DynamicSketch::print() {
+    for (const auto cms : sketches) {
+        for (int col = 0; col < cms->width; col++) {
+            std::cout << cms->counts[0][col] << std::endl;
+        }
+    }
 }
 
 int DynamicSketch::getMemoryUsage() const

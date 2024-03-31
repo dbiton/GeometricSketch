@@ -26,18 +26,19 @@ to Creative Commons, 559 Nathan Abbott Way, Stanford, California
 /* Routines to support Count-Min sketches                               */
 /************************************************************************/
 
-CM_type * CM_Init(int width, int depth, int seed)
+CM_type * CM_Init(int width, int depth, int _seed)
 {     // Initialize the sketch based on user-supplied size
   CM_type * cm;
   int j;
   prng_type * prng;
 
   cm=(CM_type *) malloc(sizeof(CM_type));
-  prng=prng_Init(-abs(seed),2); 
+  prng=prng_Init(-abs(_seed),2);
   // initialize the generator to pick the hash functions
 
   if (cm && prng)
     {
+      cm->seed = _seed;
       cm->depth=depth;
       cm->width=width;
       cm->count=0;
@@ -140,41 +141,42 @@ bool CM_Merge(CM_type * cm, CM_type* cm_other)
     return true;
 }
 
-void CM_Update(CM_type * cm, unsigned int item, int diff)
+void CM_Update(CM_type * cm, unsigned int _item, int diff)
 {
   int j;
-
+  uint32_t item = _item;
   if (!cm) return;
   cm->count+=diff;
-  for (j=0;j<cm->depth;j++)
-    cm->counts[j][XXH64(&item, sizeof(item), j) % cm->width]+=diff;
+  for (j = 0; j < cm->depth; j++) {
+      cm->counts[j][XXH64(&item, sizeof(item), cm->seed + j) % cm->width] += diff;
+  }
   // this can be done more efficiently if the width is a power of two
 }
 
-int CM_PointEst(CM_type * cm, unsigned int query)
+int CM_PointEst(CM_type * cm, unsigned int _query)
 {
   // return an estimate of the count of an item by taking the minimum
   int j, ans;
-
+  uint32_t query = _query;
   if (!cm) return 0;
-  ans=cm->counts[0][XXH64(&query, sizeof(query), 0) % cm->width];
+  ans=cm->counts[0][XXH64(&query, sizeof(query), cm->seed + 0) % cm->width];
   for (j=1;j<cm->depth;j++)
-    ans=min(ans,cm->counts[j][XXH64(&query, sizeof(query), j) %cm->width]);
+    ans=min(ans,cm->counts[j][XXH64(&query, sizeof(query), cm->seed + j) %cm->width]);
   // this can be done more efficiently if the width is a power of two
   return (ans);
 }
 
-int CM_PointMed(CM_type * cm, unsigned int query)
+int CM_PointMed(CM_type * cm, unsigned int _query)
 {
   // return an estimate of the count by taking the median estimate
   // useful when counts can become negative
   // depth needs to be larger for this to work well
   int j, * ans, result=0;
-
+  uint32_t query = _query;
   if (!cm) return 0;
   ans=(int *) calloc(1+cm->depth,sizeof(int));
   for (j=0;j<cm->depth;j++)
-    ans[j+1]=cm->counts[j][XXH64(&query, sizeof(query), j)%cm->width];
+    ans[j+1]=cm->counts[j][XXH64(&query, sizeof(query), cm->seed + j) % cm->width];
 
   if (cm->depth==1)
     result=ans[1];
@@ -274,7 +276,7 @@ int CM_Residue(CM_type * cm, unsigned int * Q)
       for (i=0;i<cm->width;i++)
 	bitmap[i]=0;
       for (i=1;i<Q[0];i++)
-    bitmap[XXH64(&Q[i], sizeof(Q[i]), j) % cm->width]=1;
+    bitmap[XXH64(&Q[i], sizeof(Q[i]), cm->seed + j) % cm->width]=1;
       for (i=0;i<cm->width;i++)
 	if (bitmap[i]==0) nextest+=cm->counts[j][i];
       estimate=max(estimate,nextest);

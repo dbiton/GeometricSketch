@@ -518,7 +518,7 @@ def plot_branching_factor(branching_factors: list, count_log: int, figure_name: 
             "--depth", str(sketch_depth),
             "--branching_factor", str(branching_factor),
             "--repeat", "expand", str(packets_per_expand), "1",
-            "--repeat", "compress", str(branching_factor), str("1000000"),
+            "--repeat", "compress", str(packets_per_expand), "10000",
             "--once", "log_average_relative_error", "0",
             "--repeat", "log_average_relative_error", str(packets_per_log),
             "--once", "log_average_relative_error", str(COUNT_PACKETS - 1),
@@ -565,7 +565,7 @@ def plot_gs_skew_branching_factor(Bs: list, count_log: int, figure_name: str):
             ]
             command_for_compress = [
                 "--repeat", "expand", str(round(packets_per_expand_compressed)), "1",
-                "--repeat", "compress", str(B), str(COUNT_PACKETS_SYNTH),
+                "--repeat", "compress", str(round(packets_per_expand_compressed)), str(COUNT_PACKETS_SYNTH),
             ]
             command_gs = [
                 "--type", "cellsketch",
@@ -710,7 +710,7 @@ def plot_gs_cms_static_comparison(B: int, L: int, count_log: int, figure_name):
             "--depth", str(sketch_depth),
             "--branching_factor", str(B),
             "--once", "expand", "0", str(counters_added),
-            "--once", "compress", "0", "100000000",
+            "--once", "compress", "0", str(counters_added),
             "--repeat", "log_average_relative_error", str(packets_per_log),
             "--once", "log_memory_usage", "0",
             "--once", "log_average_relative_error", "0",
@@ -788,7 +788,7 @@ def plot_gs_dcms_comparison(B: int, K: int, N: int, count_log: int, figure_name:
             appended_counters_count = sketch_depth * appended_sketch_width
             if total >= COUNT_PACKETS:
                 break
-            compress_command = ["--once", "compress", str(total), "1000000000"]
+            compress_command = ["--once", "compress", str(total), str(appended_counters_count * B / (B - 1))]
             command_dcms += ["--once", "expand", str(total), str(appended_sketch_width)]
             command_gs_compressed += ["--once", "expand", str(total),
                                       str(appended_counters_count * B / (B - 1))] + compress_command
@@ -913,14 +913,14 @@ def plot_gs_dcms_granular_comparison(B: int, K: int, N: int, count_log: int, fig
             "--repeat", "expand", str(packets_per_expand), "1"
         ]
         if is_compressed:
-            command_gs += ["--repeat", "compress", str(packets_per_expand), "1000000000"]
+            command_gs += ["--repeat", "compress", str(packets_per_expand), str(COUNT_PACKETS)]
 
         result = execute_command(command_gs)
         y_mae = result['log_average_relative_error'].dropna().to_numpy()
         y_mem = result['memory_usage'].dropna().to_numpy()
         x_mae = result['log_average_relative_error'].dropna().index.to_numpy()
         x_mem = result['memory_usage'].dropna().index.to_numpy()
-        compress_char = "C" if i == 1 else "U"
+        compress_char = "C" if is_compressed else "U"
         ax0.plot(x_mem, y_mem, label=f"GS-B{B}-{compress_char}", marker=markers[-i])
         ax1.plot(x_mae, y_mae, label=f"GS-B{B}-{compress_char}", marker=markers[-i])
 
@@ -1061,6 +1061,7 @@ def plot_gs_dynamic_undo_comparison(B_count: int, count_log: int, figure_name: s
              enumerate(reversed(expand_sizes_geometric))], [])
         command_countmin = [
                                "--type", "dynamic",
+                                "--dcms_same_seed", "1",
                                "--width", str(sketch_width),
                                "--depth", str(sketch_depth),
                                "--repeat", "log_average_relative_error", str(packets_per_log),
@@ -1280,13 +1281,13 @@ def parallel():
 
 def serial():
     plot_gs_dynamic_undo_comparison(3, 24, "plot_gs_dynamic_undo_comparison")
-    plot_gs_dcms_comparison(2, 4, 2 * 5 * 272 * 100, 32, "fig_gs_dcms_comparison")
-    plot_gs_dcms_granular_comparison(2, 4, 2 * 5 * 272 * 100, 32, "fig_gs_dcms_granular_comparison")
-    plot_gs_cms_derivative_comparison(2, 3, 16, "fig_gs_cms_derivative")
+    plot_gs_dcms_comparison(2, 2, 2 * 5 * 272 * 100, 32, "fig_gs_dcms_comparison")
+    plot_gs_cms_derivative_comparison(2, 4, 16, "fig_gs_cms_derivative")
     plot_gs_derivative(2, 3, 256, 16, "fig_gs_derivative")
     plot_gs_undo_expand(B=2, L=3, max_cycles=4, granularity=128, count_log_memory=24, count_log_are=24,
                         figure_name="fig_gs_undo_expand")
     plot_gs_cms_static_comparison(2, 4, 16, "fig_gs_cms_static_comparison")
+    plot_gs_dcms_granular_comparison(2, 4, 2 * 5 * 272 * 100, 32, "fig_gs_dcms_granular_comparison")
     plot_gs_skew_branching_factor([2, 4, 8, 12, 16], 16, "fig_gs_skew_branching_factor")
     plot_dcms_memory_usage([2, 5], [1000, 500], 32, "fig_dcms_memory_usage")
     plot_branching_factor([2, 4, 8], 16, "fig_branching_factor")
@@ -1297,9 +1298,16 @@ def serial():
 
 if __name__ == "__main__":
     parallel()
-
+    '''
     plot_dcms_update_query_throughput(8, 6, "fig_dcms_update_query_throughput")
     plot_cms_update_query_throughput(6, 6, 5, 2, "fig_cms_throughput")
     plot_gs_update_query_throughput(8, 6, "fig_gs_update_query_throughput")
     plot_gs_dcms_undo_throughput(8, 6, "fig_gs_dcms_undo_throughput")
-    plot_gs_compress_throughput(8, 6, "fig_gs_compress_throughput")
+    plot_gs_compress_throughput(8, 6, "fig_gs_compress_throughput")'''
+
+    # plot_gs_dcms_undo_throughput(8, 6, "fig_gs_dcms_undo_throughput")
+    # plot_gs_dynamic_undo_comparison(3, 24, "plot_gs_dynamic_undo_comparison")
+
+    
+    
+    
