@@ -94,14 +94,6 @@ int DynamicSketch::shrink(int n)
     return bytes_removed;
 }
 
-void DynamicSketch::print() {
-    for (const auto cms : sketches) {
-        for (int col = 0; col < cms->width; col++) {
-            std::cout << cms->counts[0][col] << std::endl;
-        }
-    }
-}
-
 int DynamicSketch::getMemoryUsage() const
 {
 	int memory_usage = sizeof(int); // depth

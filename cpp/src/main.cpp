@@ -1,3 +1,6 @@
+#define DOCTEST_CONFIG_IMPLEMENT
+#include "doctest.h"
+
 #include <unordered_map>
 #include <time.h>
 #include <chrono>
@@ -7,6 +10,7 @@
 #include "DynamicSketch.h"
 #include "GeometricSketch.h"
 #include "Dictionary.h"
+
 
 typedef std::chrono::high_resolution_clock chrono_clock;
 typedef std::chrono::duration<double, std::milli> duration;
@@ -382,8 +386,15 @@ void manual_argument()
 	// args leaks memory, but its a hack anyways and should exit right after
 }
 
+int test() {
+	doctest::Context context;
+	int result = context.run();
+	return result;
+}
+
 int main(int argc, const char *argv[])
 {
+	// test();
     // manual_argument();
     proccess_input(argc, argv);
 }

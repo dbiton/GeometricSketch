@@ -20,7 +20,6 @@ public:
     int getSize() const;
     int getMemoryUsage() const; // minimum
 
-	void print();
 private:
 	void mergeCountMin(CM_type* cm0, CM_type* cm1);
 };

@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClInclude Include="include\countmin.h" />
     <ClInclude Include="include\Dictionary.h" />
+    <ClInclude Include="include\doctest.h" />
     <ClInclude Include="include\DynamicSketch.h" />
     <ClInclude Include="include\GeometricSketch.h" />
     <ClInclude Include="include\prng.h" />
