@@ -114,6 +114,38 @@ double calculateAverageAbsoluteError(Dictionary *dictionary, const std::vector<u
 	return delta / hashtable.size();
 }
 
+void printAbsoluteErrors(int limit, Dictionary* dictionary, const std::vector<uint32_t>& packets, int packet_index)
+{
+	std::cout << "{\"index\":" << packet_index << ",\"log_absolute_errors\":";
+	if (packet_index > 0) {
+		std::unordered_map<uint32_t, int> packet_to_count;
+		for (int i = 0; i < packet_index; i++)
+		{
+			packet_to_count[packets[i]] += 1;
+		}
+		std::multimap<int, uint32_t> count_to_packet;
+		for (auto const& packet_count_pair : packet_to_count)
+		{
+			uint32_t packet = packet_count_pair.first;
+			int count = packet_count_pair.second;
+			count_to_packet.insert(std::make_pair(-count, packet));
+		}
+
+		int i = 0;
+		for (auto const& count_packet_pair : count_to_packet)
+		{
+			if (i++ >= limit) {
+				break;
+			}
+			uint32_t packet = count_packet_pair.second;
+			int count = -count_packet_pair.first;
+
+			std::cout << "{\"id\":" << packet << ",\"count\":" << count << "},"; // fix this "," since it shouldn't show up on the last one
+		}
+		std::cout << "}}," << std::endl;
+	}
+}
+
 double calculateAverageRelativeError(Dictionary *dictionary, const std::vector<uint32_t> &packets, int packet_index)
 {
 	if (packet_index == 0)
@@ -207,6 +239,10 @@ void doPendingActions(Dictionary *dictionary, const std::vector<uint32_t> &packe
 			else if (action_name == "log_average_relative_error"){
 				double error = calculateAverageRelativeError(dictionary, packets, packet_index);
 				std::cout << "{\"log_average_relative_error\":" << error << ",\"index\":" << packet_index << "}," << std::endl;
+			}
+			else if (action_name == "log_absolute_errors") {
+				int limit = action_timer.argument;
+				printAbsoluteErrors(limit, dictionary, packets, packet_index);
 			}
 			else if (action_name == "log_mean_squared_error")
 			{
@@ -340,7 +376,7 @@ void proccess_input(int argc, const char *argv[])
 			std::string action_name = argv[++i];
 			int packets_per_action = std::stoi(argv[++i]);
 			int argument = 0;
-			if (action_name == "expand" || action_name == "shrink" | action_name == "compress" | action_name == "log_compress_time" | action_name == "log_expand_and_shrink_time")
+			if (action_name == "expand" || action_name == "shrink" | action_name == "compress" | action_name == "log_compress_time" | action_name == "log_expand_and_shrink_time" | action_name == "log_absolute_errors")
 			{
 				argument = std::stoi(argv[++i]);
 			}
@@ -366,8 +402,7 @@ void proccess_input(int argc, const char *argv[])
 
 void manual_argument()
 {
-
-	std::string cmd = "--limit_file ..\\pcaps\\capture.txt 100000 --type geometric --width 272 --depth 5 --branching_factor 2 --repeat log_average_relative_error 4166 --once log_memory_usage 0 --once log_average_relative_error 0 --once log_memory_usage 99999 --once log_average_relative_error 99999 --repeat log_memory_usage 4166 --once expand 12500 2720 --once expand 25000 5440 --once expand 37500 10880 --once shrink 62500 10880 --once shrink 75000 5440 --once shrink 87500 2720";
+	std::string cmd = "--limit_file ..\\pcaps\\capture.txt 100000 --type geometric --width 272 --depth 5 --branching_factor 2 --repeat log_absolute_errors 4166 10 --once log_memory_usage 0 --once log_average_relative_error 0 --once log_memory_usage 99999 --once log_average_relative_error 99999 --repeat log_memory_usage 4166 --once expand 12500 2720 --once expand 25000 5440 --once expand 37500 10880 --once shrink 62500 10880 --once shrink 75000 5440 --once shrink 87500 2720";
 	std::vector<const char*> args;
 	std::istringstream iss(cmd);
 
@@ -395,6 +430,6 @@ int test() {
 int main(int argc, const char *argv[])
 {
 	// test();
-    // manual_argument();
-    proccess_input(argc, argv);
+    manual_argument();
+    // proccess_input(argc, argv);
 }
