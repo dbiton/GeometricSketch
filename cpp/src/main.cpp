@@ -5,23 +5,20 @@
 #include <string>
 
 #include "DynamicSketch.h"
-#include "NaiveSketch.h"
-#include "ElasticSketch.h"
+#include "GeometricSketch.h"
 #include "Dictionary.h"
-#include "LinkedCellSketch.h"
 
 typedef std::chrono::high_resolution_clock chrono_clock;
 typedef std::chrono::duration<double, std::milli> duration;
 
-constexpr float epsilon = 0.01;
-constexpr float delta = 0.01;
+constexpr double epsilon = 0.01;
+constexpr double delta = 0.01;
 constexpr int SEED = 0x1337C0D3;
 
 int DIST_BUCKET_COUNT = 32;
 int CM_WIDTH = 272;
 int CM_DEPTH = 5;
 int BUCKET_COUNT = 32;
-int MEMORY_USAGE = 1024 * 1024 * 32; // 32MB
 int BRANCHING_FACTOR = 2;
 bool DCMS_USE_SAME_SEED = false;
 
@@ -49,7 +46,7 @@ void loadPacketsFromArgs(const char *argv[], int &i, int packet_num, std::vector
 	{
 		if (i != max_packets)
 		{
-			ipaddr = static_cast<uint32_t>(stoi(argv[++i]));
+			ipaddr = static_cast<uint32_t>(std::stoi(argv[++i]));
 			packets->push_back(ipaddr);
 		}
 	}
@@ -78,18 +75,9 @@ Dictionary *createDictionary(std::string type)
 	{
 		return new CountMinDictionary(CM_WIDTH, CM_DEPTH, SEED);
 	}
-	else if (type == "countsketch")
+	else if (type == "geometric")
 	{
-		return nullptr;
-		// return new CountSketchDictionary(CM_WIDTH, CM_DEPTH);
-	}
-	else if (type == "elastic")
-	{
-		return new ElasticDictionary(BUCKET_COUNT, BUCKET_COUNT * COUNTER_PER_BUCKET * 8 + CM_WIDTH * CM_DEPTH, SEED);
-	}
-	else if (type == "cellsketch")
-	{
-		return new LinkedCellSketch(CM_WIDTH, CM_DEPTH, BRANCHING_FACTOR);
+		return new GeometricSketch(CM_WIDTH, CM_DEPTH, BRANCHING_FACTOR);
 	}
     else if (type == "dynamic"){
         return new DynamicSketch(CM_WIDTH, CM_DEPTH, DCMS_USE_SAME_SEED);
@@ -257,7 +245,7 @@ void doPendingActions(Dictionary *dictionary, const std::vector<uint32_t> &packe
 			else if (action_name == "log_unique_packet_count")
 			{
 				auto unique_packets_so_far = uniquePacketsBeforeIndex(packets, packet_index + 1);
-				int unique_packet_count = unique_packets_so_far.size();
+				size_t unique_packet_count = unique_packets_so_far.size();
 				std::cout << "{\"log_unique_packet_count\":" << unique_packet_count << ",\"index\":" << packet_index << "}," << std::endl;
 			}
 			else
@@ -306,12 +294,12 @@ void proccess_input(int argc, const char *argv[])
 		else if (arg == "--limit_file" || arg == "-l")
 		{
 			std::string path = argv[++i];
-			int max_packets = stoi(argv[++i]);
+			int max_packets = std::stoi(argv[++i]);
 			loadPacketsFromFile(path, &packets, max_packets);
 		}
 		else if (arg == "--packets" || arg == "-p")
 		{
-			int packet_num = stoi(argv[++i]);
+			int packet_num = std::stoi(argv[++i]);
 			loadPacketsFromArgs(argv, i, packet_num, &packets);
 		}
 		else if (arg == "--type" || arg == "-t")
@@ -324,33 +312,33 @@ void proccess_input(int argc, const char *argv[])
 		}
 		else if (arg == "--buckets")
 		{
-			BUCKET_COUNT = stoi(argv[++i]);
+			BUCKET_COUNT = std::stoi(argv[++i]);
 		}
 		else if (arg == "--branching_factor")
 		{
-			BRANCHING_FACTOR = stoi(argv[++i]);
+			BRANCHING_FACTOR = std::stoi(argv[++i]);
 		}
 		else if (arg == "--width")
 		{
-			CM_WIDTH = stoi(argv[++i]);
+			CM_WIDTH = std::stoi(argv[++i]);
 		}
 		else if (arg == "--depth")
 		{
-			CM_DEPTH = stoi(argv[++i]);
+			CM_DEPTH = std::stoi(argv[++i]);
 		}
 		else if (arg == "--dcms_same_seed")
 		{
-			DCMS_USE_SAME_SEED = stoi(argv[++i]);
+			DCMS_USE_SAME_SEED = std::stoi(argv[++i]);
 		}
 		else if (arg == "--repeat" || arg == "--once")
 		{
 			bool is_repeat = "--repeat" == arg;
 			std::string action_name = argv[++i];
-			int packets_per_action = stoi(argv[++i]);
+			int packets_per_action = std::stoi(argv[++i]);
 			int argument = 0;
 			if (action_name == "expand" || action_name == "shrink" | action_name == "compress" | action_name == "log_compress_time" | action_name == "log_expand_and_shrink_time")
 			{
-				argument = stoi(argv[++i]);
+				argument = std::stoi(argv[++i]);
 			}
 			ActionTimer action_timer = ActionTimer(action_name, packets_per_action, is_repeat, argument);
 			action_timers.push_back(action_timer);
@@ -375,7 +363,7 @@ void proccess_input(int argc, const char *argv[])
 void manual_argument()
 {
 
-	std::string cmd = "--limit_file ..\\pcaps\\capture.txt 100000 --type cellsketch --width 272 --depth 5 --branching_factor 2 --repeat log_average_relative_error 4166 --once log_memory_usage 0 --once log_average_relative_error 0 --once log_memory_usage 99999 --once log_average_relative_error 99999 --repeat log_memory_usage 4166 --once expand 12500 2720 --once expand 25000 5440 --once expand 37500 10880 --once shrink 62500 10880 --once shrink 75000 5440 --once shrink 87500 2720";
+	std::string cmd = "--limit_file ..\\pcaps\\capture.txt 100000 --type geometric --width 272 --depth 5 --branching_factor 2 --repeat log_average_relative_error 4166 --once log_memory_usage 0 --once log_average_relative_error 0 --once log_memory_usage 99999 --once log_average_relative_error 99999 --repeat log_memory_usage 4166 --once expand 12500 2720 --once expand 25000 5440 --once expand 37500 10880 --once shrink 62500 10880 --once shrink 75000 5440 --once shrink 87500 2720";
 	std::vector<const char*> args;
 	std::istringstream iss(cmd);
 
@@ -391,9 +379,7 @@ void manual_argument()
 	args.push_back(0);
 
 	proccess_input(args.size(), &args[0]);
-	/*for (size_t i = 0; i < args.size(); i++){
-		 delete[] args[i];
-	}*/
+	// args leaks memory, but its a hack anyways and should exit right after
 }
 
 int main(int argc, const char *argv[])

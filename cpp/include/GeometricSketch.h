@@ -2,7 +2,7 @@
 
 #include "Dictionary.h"
 
-class LinkedCellSketch : public Dictionary
+class GeometricSketch : public Dictionary
 {
     std::vector<uint32_t> counters;
     unsigned offset;
@@ -10,8 +10,8 @@ class LinkedCellSketch : public Dictionary
     unsigned width;
     unsigned depth;
 public:
-    LinkedCellSketch(int width, int depth, int branching_factor);
-    ~LinkedCellSketch();
+    GeometricSketch(int width, int depth, int branching_factor);
+    ~GeometricSketch();
 
     void update(uint32_t key, int amount);
     int query(uint32_t key);

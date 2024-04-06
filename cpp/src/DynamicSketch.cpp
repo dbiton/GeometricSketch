@@ -54,7 +54,7 @@ int DynamicSketch::expand(int width)
 }
 
 int DynamicSketch::getSize() const{
-    return sketches.size();
+    return (int)sketches.size();
 }
 
 void DynamicSketch::mergeCountMin(CM_type* cm0, CM_type* cm1){

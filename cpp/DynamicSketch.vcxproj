@@ -19,35 +19,19 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\BOBHash32.h" />
     <ClInclude Include="include\countmin.h" />
-    <ClInclude Include="include\CountSketch.h" />
     <ClInclude Include="include\Dictionary.h" />
     <ClInclude Include="include\DynamicSketch.h" />
-    <ClInclude Include="include\ElasticSketch.h" />
-    <ClInclude Include="include\EMFSD.h" />
-    <ClInclude Include="include\HeavyPart.h" />
-    <ClInclude Include="include\LightPart.h" />
-    <ClInclude Include="include\LinkedCellSketch.h" />
-    <ClInclude Include="include\Murmurhash.h" />
-    <ClInclude Include="include\NaiveSketch.h" />
-    <ClInclude Include="include\param.h" />
+    <ClInclude Include="include\GeometricSketch.h" />
     <ClInclude Include="include\prng.h" />
     <ClInclude Include="include\rand48.h" />
-    <ClInclude Include="include\util.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\BOBHash32.cpp" />
     <ClCompile Include="src\countmin.cc" />
     <ClCompile Include="src\Dictionary.cpp" />
     <ClCompile Include="src\DynamicSketch.cpp" />
-    <ClCompile Include="src\ElasticSketch.cpp" />
-    <ClCompile Include="src\HeavyPart.cpp" />
-    <ClCompile Include="src\LightPart.cpp" />
-    <ClCompile Include="src\LinkedCellSketch.cpp" />
+    <ClCompile Include="src\GeometricSketch.cpp" />
     <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\Murmurhash.cpp" />
-    <ClCompile Include="src\NaiveSketch.cpp" />
     <ClCompile Include="src\prng.cc" />
     <ClCompile Include="src\rand48.cc" />
     <ClCompile Include="src\xxhash.c" />

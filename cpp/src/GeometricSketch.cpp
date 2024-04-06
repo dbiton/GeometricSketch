@@ -1,7 +1,7 @@
-#include "LinkedCellSketch.h"
+#include "GeometricSketch.h"
 #include "xxhash.h"
 
-LinkedCellSketch::LinkedCellSketch(int width, int depth, int branching_factor) : 
+GeometricSketch::GeometricSketch(int width, int depth, int branching_factor) : 
     Dictionary(),
     width(width),
     depth(depth),
@@ -9,20 +9,15 @@ LinkedCellSketch::LinkedCellSketch(int width, int depth, int branching_factor) :
     offset(0),
     counters(width * depth, 0)
 {
-    /*
-        Counter Layer Index - row_index, layer_index, layer_offset
-        Counter Row Index - row_index, row_offset
-        Counter Canonical Index - vector offset
-    */
 }
 
-LinkedCellSketch::~LinkedCellSketch()
+GeometricSketch::~GeometricSketch()
 {
 }
 
-void LinkedCellSketch::update(uint32_t key, int amount)
+void GeometricSketch::update(uint32_t key, int amount)
 {
-    for (int row_index = 0; row_index < depth; row_index++)
+    for (unsigned row_index = 0; row_index < depth; row_index++)
     {
         int vector_offset = getLastLayerVectorOffsetFromKey(key, row_index);
         long actual_index = (long)vector_offset - offset;
@@ -30,7 +25,7 @@ void LinkedCellSketch::update(uint32_t key, int amount)
     }
 }
 
-int LinkedCellSketch::getLastLayerVectorOffsetFromKey(
+int GeometricSketch::getLastLayerVectorOffsetFromKey(
     uint32_t key,
     uint16_t row_index
 ) {
@@ -48,7 +43,7 @@ int LinkedCellSketch::getLastLayerVectorOffsetFromKey(
     return prev_vector_offset;
 }
 
-int LinkedCellSketch::getNextLayerVectorOffsetFromKey(
+int GeometricSketch::getNextLayerVectorOffsetFromKey(
     uint32_t key, 
     uint16_t row_index, 
     int& prev_layer_index, 
@@ -69,16 +64,16 @@ int LinkedCellSketch::getNextLayerVectorOffsetFromKey(
     return vector_offset;
 }
 
-int LinkedCellSketch::query(uint32_t key)
+int GeometricSketch::query(uint32_t key)
 {
     int O = offset;
     uint32_t estimate = UINT32_MAX;
-    for (int row_index = 0; row_index < depth; row_index++)
+    for (uint32_t row_index = 0; row_index < depth; row_index++)
     {
         uint32_t current_estimate = 0;
         int prev_layer_index = 0;
         int prev_layer_begin_counter_index = 0;
-        int prev_row_offset = hash(key, row_index, 0) % width;
+        int prev_row_offset = hash(key, row_index, 0UL) % width;
         int prev_B_pow_layer_index = 1;
         int vector_offset = rowOffsetToVectorOffset(row_index, prev_row_offset);
         while (vector_offset < counters.size() + offset){
@@ -92,39 +87,12 @@ int LinkedCellSketch::query(uint32_t key)
         estimate = std::min(estimate, current_estimate);
     }
     return estimate;
-    /*
-    std::vector<uint32_t> estimates;
-    for (int row_index = 0; row_index < rows.size(); row_index++)
-    {
-        auto& row = *rows[row_index];
-        std::vector<int> indice;
-        getAllLayersCounterIndiceFromKey(key, row_index, indice);
-        uint32_t current_estimate = 0;
-        for (int i = 0; i<indice.size(); i++)
-        {
-            while (estimates.size() <= i) {
-                estimates.push_back(INT32_MAX);
-            }
-            int counter_index = indice[i];
-            estimates[i] = min(row[counter_index - offset], estimates[i]);
-        }
-    }
-    int result = 0;
-    for (const auto& e : estimates) result += e;
-        
-    return result;
-    */
 }
 
-// this and compress can be improved by not using getVectorOffsetParent each time
-// and instead going from parent to parent but it would make the function uglier and
-// I am lazy
-int LinkedCellSketch::undoExpand(int n)
+int GeometricSketch::undoExpand(int n)
 {
     int counter_undo = 0;
-    // start from the last counter
-    //std::cout << "undoExpand:" << std::endl;
-    for (int i_child = counters.size() - 1; i_child >= (int)counters.size() - n; i_child--)
+    for (int i_child = (int)counters.size() - 1; i_child >= (int)counters.size() - n; i_child--)
     {
         long actual_index_child = i_child - offset;
         int i_parent = getVectorOffsetParent(actual_index_child);
@@ -141,13 +109,12 @@ int LinkedCellSketch::undoExpand(int n)
     return counter_undo;
 }
 
-// compress takes into account offset
-int LinkedCellSketch::compress(int n)
+int GeometricSketch::compress(int n)
 {
     int compress_counter = 0;
-    int counter_index_parent = offset;
+    size_t counter_index_parent = offset;
     int counter_index_first_child = getVectorOffsetFirstChild(counter_index_parent);
-    while (counter_index_parent < offset + n) {
+    while (counter_index_parent < (size_t)n + offset) {
         int counter_index_last_child = counter_index_first_child + (branching_factor - 1) * depth;
         if (counter_index_last_child >= offset + counters.size()) {
             break;
@@ -167,63 +134,36 @@ int LinkedCellSketch::compress(int n)
     return compress_counter;
 }
 
-void LinkedCellSketch::print()
+void GeometricSketch::print()
 {
     for (auto counter : counters) {
         std::cout << counter << std::endl;
     }
 }
 
-int LinkedCellSketch::expand(int n)
+int GeometricSketch::expand(int n)
 {
     counters.resize(counters.size() + n, 0);
     return n;
 }
 
-int LinkedCellSketch::shrink(int n)
+int GeometricSketch::shrink(int n)
 {
     return undoExpand(n);
 }
 
-int LinkedCellSketch::getMemoryUsage() const
+int GeometricSketch::getMemoryUsage() const
 {
-    // offset, vector length for each row, vector position, vector length for rows and vector position
-    return counters.size() * sizeof(uint32_t) + sizeof(unsigned) * 4;
+    return (int)counters.size() * sizeof(uint32_t) + sizeof(unsigned) * 4;
 }
 
-/*
-void LinkedCellSketch::printRows() const
-{
-    size_t R = rows[0]->size();
-    size_t B = branching_factor;
-    size_t W = width;
-    for (int depth = 0; depth < rows.size(); depth++)
-    {
-        std::cout << std::endl << "row index:" << depth;
-        for (int layer_index = 0; getLayerFirstCounterIndex(layer_index) < R+offset; layer_index++)
-        {
-            std::cout << std::endl << "layer index:" << layer_index << ">";
-            int layer_length = W * std::pow(B, layer_index);
-            for (int layer_offset = 0; layer_offset < layer_length; layer_offset++)
-            {
-                size_t counter_index = W*(pow(B, layer_index)-1)/(B-1) + layer_offset;
-                int counter_value = 0;
-                if (counter_index < R + offset && counter_index >= offset){
-                    counter_value = (*rows[depth])[counter_index - offset];
-                }
-                std::cout << "," << std::to_string(counter_value);
-            }
-        }
-    }
-}*/
-
-uint64_t LinkedCellSketch::hash(uint32_t key, uint32_t row_index, uint32_t layer_index) const
+uint64_t GeometricSketch::hash(uint32_t key, uint32_t row_index, uint32_t layer_index) const
 {
     uint64_t seed = ((uint64_t)layer_index << 32) | row_index;
     return XXH64(&key, sizeof(key), seed);
 }
 
-int LinkedCellSketch::rowOffsetToLayerIndex(int row_offset, int& layer_offset) const
+int GeometricSketch::rowOffsetToLayerIndex(int row_offset, int& layer_offset) const
 {
     int B = branching_factor;
     layer_offset = row_offset;
@@ -237,7 +177,7 @@ int LinkedCellSketch::rowOffsetToLayerIndex(int row_offset, int& layer_offset) c
     return layer;
 }
 
-int LinkedCellSketch::getVectorOffsetParent(int vector_offset) const
+int GeometricSketch::getVectorOffsetParent(int vector_offset) const
 {
     int B = (int)branching_factor;
     int W = (int)width;
@@ -252,11 +192,11 @@ int LinkedCellSketch::getVectorOffsetParent(int vector_offset) const
     return rowOffsetToVectorOffset(row_index, parent_row_offset);
 }
 
-int LinkedCellSketch::rowOffsetToVectorOffset(int row_index, int row_offset) const {
+int GeometricSketch::rowOffsetToVectorOffset(int row_index, int row_offset) const {
     return row_offset * depth + row_index;
 }
 
-int LinkedCellSketch::getVectorOffsetFirstChild(int vector_offset) const
+int GeometricSketch::getVectorOffsetFirstChild(int vector_offset) const
 {
     int B = (int)branching_factor;
     int W = (int)width;
@@ -268,13 +208,13 @@ int LinkedCellSketch::getVectorOffsetFirstChild(int vector_offset) const
     return rowOffsetToVectorOffset(row_index, child_row_offset);
 }
 
-int LinkedCellSketch::vectorOffsetToRowIndex(int vector_offset, int& row_offset) const {
+int GeometricSketch::vectorOffsetToRowIndex(int vector_offset, int& row_offset) const {
     row_offset = vector_offset / depth;
     int row_index = vector_offset % depth;
     return row_index;
 }
 
-int LinkedCellSketch::getLayerRowOffset(int layer_index) const
+int GeometricSketch::getLayerRowOffset(int layer_index) const
 {
     int L = layer_index;
     int B = (int)branching_factor;

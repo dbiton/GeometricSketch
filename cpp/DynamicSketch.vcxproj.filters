@@ -21,60 +21,21 @@
     <ClInclude Include="include\DynamicSketch.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\ElasticSketch.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\EMFSD.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\HeavyPart.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\LightPart.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Murmurhash.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\NaiveSketch.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\param.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="include\prng.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\rand48.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\util.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\BOBHash32.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="include\countmin.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\CountSketch.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\LinkedCellSketch.h">
+    <ClInclude Include="include\GeometricSketch.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\LightPart.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Murmurhash.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\NaiveSketch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\countmin.cc">
@@ -86,22 +47,13 @@
     <ClCompile Include="src\rand48.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\BOBHash32.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\Dictionary.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\DynamicSketch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\ElasticSketch.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\HeavyPart.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\LinkedCellSketch.cpp">
+    <ClCompile Include="src\GeometricSketch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\xxh_x86dispatch.c">
