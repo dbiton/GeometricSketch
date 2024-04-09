@@ -46,7 +46,7 @@ def execute_command(arguments: list, packets_path=filepath_packets, count_packet
             f"command: {' '.join(command)} caused error: {result.stderr}")
     raw_output = result.stdout.replace("\n", "").replace("\t", "")[:-2] + ']'
     output_dict = json.loads(raw_output)
-    output_df = pd.DataFrame(output_dict).groupby('index').apply(lambda x : x)
+    output_df = pd.DataFrame(output_dict).groupby('index').filter(lambda x : True).set_index("index")
     return output_df
 
 
@@ -979,27 +979,32 @@ def plot_gs_error_top_N(B: int, MAX_N: int, count_log: int, figure_name: str):
     
     fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
 
-    command = [
-        "--type", "geometric",
-        "--width", str(sketch_width),
-        "--depth", str(sketch_depth),
-        "--branching_factor", str(B),
-        "--once", "log_memory_usage", "0",
-        "--repeat", "log_memory_usage", str(packets_per_log),
-        "--once", "log_memory_usage", str(COUNT_PACKETS - 1),
-        "--once", "log_absolute_errors", str(COUNT_PACKETS - 1), str(MAX_N),
-        "--repeat", "expand", str(packets_per_expand), "1"
-    ]
+    for sketchtype in ["geometric", "dynamic"]:
+        for b in range(2, B):
+            command = [
+                "--type", sketchtype,
+                "--width", str(sketch_width),
+                "--depth", str(sketch_depth),
+                "--branching_factor", str(b),
+                "--once", "log_memory_usage", "0",
+                "--repeat", "log_memory_usage", str(packets_per_log),
+                "--once", "log_memory_usage", str(COUNT_PACKETS - 1),
+                "--once", "log_heavy_hitters", str(COUNT_PACKETS - 1), str(MAX_N),
+                # "--repeat", "expand", str(packets_per_expand), "1"
+            ]
 
-    result = execute_command(command)
-    absolute_errors = result['log_absolute_errors'].dropna().to_numpy()[0]
-    y_mae = [e['count'] for e in absolute_errors]
-    x_mae = [e['id'] for e in absolute_errors]
-    
-    y_mem = result['memory_usage'].dropna().to_numpy()
-    x_mem = result['memory_usage'].dropna().index.to_numpy()
-    ax0.plot(x_mem, y_mem, label=f"GS-B{B}")
-    ax1.plot(x_mae, y_mae, label=f"GS-B{B}")
+            result = execute_command(command)
+            heavy_hitters = result['log_heavy_hitters'].dropna().to_numpy()[0]
+            absolute_errors = np.array([abs(e['count']-e['query']) for e in heavy_hitters])
+            y_aae = []
+            x_aae = []
+            for n in range(MAX_N//count_log, MAX_N, MAX_N//count_log):
+                y_aae.append(absolute_errors[:n].mean())
+                x_aae.append(n)
+            y_mem = result['memory_usage'].dropna().to_numpy()
+            x_mem = result['memory_usage'].dropna().index.to_numpy()
+            # ax0.plot(x_mem, y_mem, label=f"GS-B{B}")
+            ax1.plot(x_aae, y_aae, label=f"{sketchtype}-B{b}")
 
     ax0.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
     ax1.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
@@ -1007,9 +1012,9 @@ def plot_gs_error_top_N(B: int, MAX_N: int, count_log: int, figure_name: str):
     ax0.set_ylabel('Memory Usage (Bytes)')
     ax0.set_xlabel('Packets Count')
     ax1.grid()
-    ax1.set_ylabel('ARE')
-    ax1.set_xlabel('Packets Count')
-    ax0.legend()
+    ax1.set_ylabel('Heavy Hitters Included')
+    ax1.set_xlabel('AAE')
+    ax1.legend()
     fig.tight_layout()
     plt.savefig(f'figures/{figure_name}')
     plt.close(fig)
@@ -1339,7 +1344,7 @@ def serial():
 
 
 if __name__ == "__main__":
-    plot_gs_error_top_N(2, 16, 1000, "cool_figure.png")
+    plot_gs_error_top_N(4, 10000, 16, "cool_figure.png")
 
     parallel()
     

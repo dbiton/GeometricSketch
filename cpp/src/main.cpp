@@ -114,9 +114,9 @@ double calculateAverageAbsoluteError(Dictionary *dictionary, const std::vector<u
 	return delta / hashtable.size();
 }
 
-void printAbsoluteErrors(int limit, Dictionary* dictionary, const std::vector<uint32_t>& packets, int packet_index)
+void printHeavyHitters(int limit, Dictionary* dictionary, const std::vector<uint32_t>& packets, int packet_index)
 {
-	std::cout << "{\"index\":" << packet_index << ",\"log_absolute_errors\":[";
+	std::cout << "{\"index\":" << packet_index << ",\"log_heavy_hitters\":[";
 	if (packet_index > 0) {
 		std::unordered_map<uint32_t, int> packet_to_count;
 		for (int i = 0; i < packet_index; i++)
@@ -140,8 +140,8 @@ void printAbsoluteErrors(int limit, Dictionary* dictionary, const std::vector<ui
 			}
 			uint32_t packet = count_packet_pair.second;
 			int count = -count_packet_pair.first;
-
-			std::cout << "{\"id\":" << packet << ",\"count\":" << count << "}";
+			int query = dictionary->query(packet);
+			std::cout << "{\"id\":" << packet << ",\"count\":" << count << ",\"query\":" << query << "}";
 			is_last = (i >= limit) || (i + 1 == count_to_packet.size() - 1);
 			if (!is_last) {
 				std::cout << ",";
@@ -245,9 +245,9 @@ void doPendingActions(Dictionary *dictionary, const std::vector<uint32_t> &packe
 				double error = calculateAverageRelativeError(dictionary, packets, packet_index);
 				std::cout << "{\"log_average_relative_error\":" << error << ",\"index\":" << packet_index << "}," << std::endl;
 			}
-			else if (action_name == "log_absolute_errors") {
+			else if (action_name == "log_heavy_hitters") {
 				int limit = action_timer.argument;
-				printAbsoluteErrors(limit, dictionary, packets, packet_index);
+				printHeavyHitters(limit, dictionary, packets, packet_index);
 			}
 			else if (action_name == "log_mean_squared_error")
 			{
@@ -381,7 +381,7 @@ void proccess_input(int argc, const char *argv[])
 			std::string action_name = argv[++i];
 			int packets_per_action = std::stoi(argv[++i]);
 			int argument = 0;
-			if (action_name == "expand" || action_name == "shrink" | action_name == "compress" | action_name == "log_compress_time" | action_name == "log_expand_and_shrink_time" | action_name == "log_absolute_errors")
+			if (action_name == "expand" || action_name == "shrink" | action_name == "compress" | action_name == "log_compress_time" | action_name == "log_expand_and_shrink_time" | action_name == "log_heavy_hitters")
 			{
 				argument = std::stoi(argv[++i]);
 			}
@@ -407,7 +407,7 @@ void proccess_input(int argc, const char *argv[])
 
 void manual_argument()
 {
-	std::string cmd = "--limit_file ..\\pcaps\\capture.txt 100000 --type geometric --width 272 --depth 5 --branching_factor 2 --once log_memory_usage 0 --repeat log_memory_usage 100 --once log_memory_usage 99999 --once log_absolute_errors 0 16 --repeat log_absolute_errors 100 16 --once log_absolute_errors 99999 16 --repeat expand 100 1";
+	std::string cmd = "--limit_file ..\\pcaps\\capture.txt 100000 --type geometric --width 272 --depth 5 --branching_factor 2 --once log_memory_usage 0 --repeat log_memory_usage 100 --once log_memory_usage 99999 --once log_heavy_hitters 0 16 --repeat log_heavy_hitters 100 16 --once log_heavy_hitters 99999 16 --repeat expand 100 1";
 	std::vector<const char*> args;
 	std::istringstream iss(cmd);
 
