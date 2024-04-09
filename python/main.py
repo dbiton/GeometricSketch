@@ -24,7 +24,7 @@ else:
     filepath_executable = "../cpp/DynamicSketch"
 
 COUNT_PACKETS_MAX = 37700000
-COUNT_PACKETS = min(37700000, COUNT_PACKETS_MAX)
+COUNT_PACKETS = min(100000, COUNT_PACKETS_MAX)
 
 
 def calculate_layer_width(w, b, layer_index):
@@ -46,7 +46,7 @@ def execute_command(arguments: list, packets_path=filepath_packets, count_packet
             f"command: {' '.join(command)} caused error: {result.stderr}")
     raw_output = result.stdout.replace("\n", "").replace("\t", "")[:-2] + ']'
     output_dict = json.loads(raw_output)
-    output_df = pd.DataFrame(output_dict).groupby('index').mean()
+    output_df = pd.DataFrame(output_dict).groupby('index').apply(lambda x : x)
     return output_df
 
 
@@ -971,6 +971,48 @@ def plot_gs_dcms_granular_comparison(B: int, K: int, N: int, count_log: int, fig
     plt.savefig(f'figures/{figure_name}')
     plt.close(fig)
 
+def plot_gs_error_top_N(B: int, MAX_N: int, count_log: int, figure_name: str):
+    sketch_width = 272
+    sketch_depth = 5
+    packets_per_log = COUNT_PACKETS // count_log
+    packets_per_expand = 100
+    
+    fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
+
+    command = [
+        "--type", "geometric",
+        "--width", str(sketch_width),
+        "--depth", str(sketch_depth),
+        "--branching_factor", str(B),
+        "--once", "log_memory_usage", "0",
+        "--repeat", "log_memory_usage", str(packets_per_log),
+        "--once", "log_memory_usage", str(COUNT_PACKETS - 1),
+        "--once", "log_absolute_errors", str(COUNT_PACKETS - 1), str(MAX_N),
+        "--repeat", "expand", str(packets_per_expand), "1"
+    ]
+
+    result = execute_command(command)
+    absolute_errors = result['log_absolute_errors'].dropna().to_numpy()[0]
+    y_mae = [e['count'] for e in absolute_errors]
+    x_mae = [e['id'] for e in absolute_errors]
+    
+    y_mem = result['memory_usage'].dropna().to_numpy()
+    x_mem = result['memory_usage'].dropna().index.to_numpy()
+    ax0.plot(x_mem, y_mem, label=f"GS-B{B}")
+    ax1.plot(x_mae, y_mae, label=f"GS-B{B}")
+
+    ax0.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
+    ax1.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
+    ax0.grid()
+    ax0.set_ylabel('Memory Usage (Bytes)')
+    ax0.set_xlabel('Packets Count')
+    ax1.grid()
+    ax1.set_ylabel('ARE')
+    ax1.set_xlabel('Packets Count')
+    ax0.legend()
+    fig.tight_layout()
+    plt.savefig(f'figures/{figure_name}')
+    plt.close(fig)
 
 def plot_gs_undo_expand(B: int, L: int, max_cycles: int, granularity: int,
                         count_log_memory: int, count_log_are: int, figure_name: str):
@@ -1297,6 +1339,8 @@ def serial():
 
 
 if __name__ == "__main__":
+    plot_gs_error_top_N(2, 16, 1000, "cool_figure.png")
+
     parallel()
     
     plot_dcms_update_query_throughput(8, 6, "fig_dcms_update_query_throughput")

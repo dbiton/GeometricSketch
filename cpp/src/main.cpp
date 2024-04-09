@@ -116,7 +116,7 @@ double calculateAverageAbsoluteError(Dictionary *dictionary, const std::vector<u
 
 void printAbsoluteErrors(int limit, Dictionary* dictionary, const std::vector<uint32_t>& packets, int packet_index)
 {
-	std::cout << "{\"index\":" << packet_index << ",\"log_absolute_errors\":";
+	std::cout << "{\"index\":" << packet_index << ",\"log_absolute_errors\":[";
 	if (packet_index > 0) {
 		std::unordered_map<uint32_t, int> packet_to_count;
 		for (int i = 0; i < packet_index; i++)
@@ -131,6 +131,7 @@ void printAbsoluteErrors(int limit, Dictionary* dictionary, const std::vector<ui
 			count_to_packet.insert(std::make_pair(-count, packet));
 		}
 
+		bool is_last = false;
 		int i = 0;
 		for (auto const& count_packet_pair : count_to_packet)
 		{
@@ -140,10 +141,14 @@ void printAbsoluteErrors(int limit, Dictionary* dictionary, const std::vector<ui
 			uint32_t packet = count_packet_pair.second;
 			int count = -count_packet_pair.first;
 
-			std::cout << "{\"id\":" << packet << ",\"count\":" << count << "},"; // fix this "," since it shouldn't show up on the last one
+			std::cout << "{\"id\":" << packet << ",\"count\":" << count << "}";
+			is_last = (i >= limit) || (i + 1 == count_to_packet.size() - 1);
+			if (!is_last) {
+				std::cout << ",";
+			}
 		}
-		std::cout << "}}," << std::endl;
 	}
+		std::cout << "]}," << std::endl;
 }
 
 double calculateAverageRelativeError(Dictionary *dictionary, const std::vector<uint32_t> &packets, int packet_index)
@@ -402,7 +407,7 @@ void proccess_input(int argc, const char *argv[])
 
 void manual_argument()
 {
-	std::string cmd = "--limit_file ..\\pcaps\\capture.txt 100000 --type geometric --width 272 --depth 5 --branching_factor 2 --repeat log_absolute_errors 4166 10 --once log_memory_usage 0 --once log_average_relative_error 0 --once log_memory_usage 99999 --once log_average_relative_error 99999 --repeat log_memory_usage 4166 --once expand 12500 2720 --once expand 25000 5440 --once expand 37500 10880 --once shrink 62500 10880 --once shrink 75000 5440 --once shrink 87500 2720";
+	std::string cmd = "--limit_file ..\\pcaps\\capture.txt 100000 --type geometric --width 272 --depth 5 --branching_factor 2 --once log_memory_usage 0 --repeat log_memory_usage 100 --once log_memory_usage 99999 --once log_absolute_errors 0 16 --repeat log_absolute_errors 100 16 --once log_absolute_errors 99999 16 --repeat expand 100 1";
 	std::vector<const char*> args;
 	std::istringstream iss(cmd);
 
@@ -430,6 +435,6 @@ int test() {
 int main(int argc, const char *argv[])
 {
 	// test();
-    manual_argument();
-    // proccess_input(argc, argv);
+    // manual_argument();
+    proccess_input(argc, argv);
 }
