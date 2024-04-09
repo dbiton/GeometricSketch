@@ -24,8 +24,37 @@ else:
     filepath_executable = "../cpp/DynamicSketch"
 
 COUNT_PACKETS_MAX = 37700000
-COUNT_PACKETS = min(100000, COUNT_PACKETS_MAX)
+COUNT_PACKETS = min(4000000, COUNT_PACKETS_MAX)
 
+def generate_dcms_expands_command(N: int, K: int, sketch_width: int, sketch_depth: int, 
+                                  strategy_name: str, is_geometric: bool, is_compressed: bool, B = None):
+    strategy_funcs = {
+        "linear": lambda v: K * v,
+        "exponential": lambda v: K ** v 
+    }
+    strategy = strategy_funcs[strategy_name]
+    j = 1
+    total = 0
+    command = []
+    while True:
+        v = strategy(j)
+        j+=1
+        thresh = N * v
+        total += thresh
+        appended_size = sketch_width * v
+        if is_geometric:
+            appended_size *= sketch_depth
+        if total >= COUNT_PACKETS:
+            break
+        if not is_compressed: 
+            command_expand = ["--once", "expand", str(total), str(appended_size)]
+            command.extend(command_expand)
+        else:
+            compress_command = ["--once", "compress", str(total), str(appended_size * B / (B - 1))]
+            command_expand_compressed = ["--once", "expand", str(total), str(appended_size * B / (B - 1))]
+            command.extend(command_expand_compressed + compress_command)
+    return command
+        
 
 def calculate_layer_width(w, b, layer_index):
     return w * b ** layer_index
@@ -413,70 +442,6 @@ def plot_ip_distribution(figure_name: str):
     plt.savefig(f'figures/{figure_name}')
     plt.close(fig)
 
-
-# def plot_mae_dynamic_and_linked_cell(count_sketch: int, count_log: int):
-#     packets_per_modify_size = COUNT_PACKETS // count_sketch
-#     packets_per_log = COUNT_PACKETS // count_log
-#
-#     for i in range(count_sketch):
-#         result_countmin = execute_command([
-#             "--type", "countmin",
-#             "--width", str(250 * (i + 1)),
-#             "--depth", "4",
-#             "--repeat", "log_average_relative_error", str(packets_per_log),
-#         ])
-#         x_countmin = np.array(result_countmin.index.to_numpy())
-#         y_countmin = np.array(
-#             result_countmin['log_average_relative_error'].to_numpy())
-#         plt.figure(num="mae_dynamic_countmin")
-#         plt.plot(x_countmin, y_countmin, label=f"countmin {i + 1}")
-#         plt.figure(num="mae_dynamic_countmin_derivative")
-#         plt.plot(x_countmin, np.gradient(
-#             y_countmin, packets_per_log), label=f"countmin {i + 1}")
-#
-#     result_dynamic = execute_command([
-#         "--type", "geometric",
-#         "--width", "250",
-#         "--depth", "4",
-#         "--repeat", "expand", str(packets_per_modify_size),
-#         "--repeat", "log_average_relative_error", str(packets_per_log)])
-#
-#     x_dynamic = np.array(result_dynamic.index.to_numpy())
-#     y_dynamic = np.array(result_dynamic['log_average_relative_error'].to_numpy())
-#     plt.figure(num="mae_dynamic_countmin")
-#     plt.plot(x_dynamic, y_dynamic, label="dynamic")
-#     plt.figure(num="mae_dynamic_countmin_derivative")
-#     plt.plot(x_dynamic, np.gradient(
-#         y_dynamic, packets_per_log), label=f"dynamic")
-#
-#     for xc in range(packets_per_modify_size, packets_per_modify_size * count_sketch, packets_per_modify_size):
-#         plt.figure(num="mae_dynamic_countmin")
-#         plt.axvline(x=xc, color='r', linestyle='dashed')
-#         plt.figure(num="mae_dynamic_countmin_derivative")
-#         plt.axvline(x=xc, color='r', linestyle='dashed')
-#
-#     for xc in range(packets_per_modify_size * count_sketch, COUNT_PACKETS, packets_per_modify_size):
-#         plt.figure(num="mae_dynamic_countmin")
-#         plt.axvline(x=xc, color='g', linestyle='dashed')
-#         plt.figure(num="mae_dynamic_countmin_derivative")
-#         plt.axvline(x=xc, color='g', linestyle='dashed')
-#
-#     plt.figure(num="mae_dynamic_countmin")
-#     plt.legend()
-#     plt.grid()
-#     plt.ylabel('MAE')
-#     plt.xlabel('packets')
-#     plt.savefig('mae_dynamic_countmin.png')
-#
-#     plt.figure(num="mae_dynamic_countmin_derivative")
-#     plt.legend()
-#     plt.grid()
-#     plt.ylabel("MAE'")
-#     plt.xlabel('packets')
-#     plt.savefig('mae_dynamic_countmin_derivative.png')
-#
-#     plt.close(fig)
-
 def plot_branching_factor(branching_factors: list, count_log: int, figure_name: str):
     sketch_width = 272
     sketch_depth = 5
@@ -739,18 +704,17 @@ def plot_gs_cms_static_comparison(B: int, L: int, count_log: int, figure_name):
     plt.savefig(f'figures/{figure_name}')
     plt.close(fig)
 
-
 def plot_gs_dcms_comparison(B: int, K: int, N: int, count_log: int, figure_name: str):
-    sketch_width = 272
-    sketch_depth = 5
+    sketch_width = 50
+    sketch_depth = 2
     packets_per_log = COUNT_PACKETS // count_log
 
     fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
 
     markers = ["v", "^", ">", "<", "D", "o", '*']
     strategies = [
-        lambda v: K * v,
-        lambda v: K ** v,
+        "linear",
+        "exponential"
     ]
     for i, strategy in enumerate(strategies):
         command_dcms = [
@@ -776,25 +740,10 @@ def plot_gs_dcms_comparison(B: int, K: int, N: int, count_log: int, figure_name:
             "--repeat", "log_average_relative_error", str(packets_per_log),
             "--once", "log_average_relative_error", str(COUNT_PACKETS - 1)
         ]
-        command_gs_compressed = command_gs.copy()
-        command_gs_uncompressed = command_gs.copy()
-        j = 1
-        total = 0
-        while True:
-            v = strategy(j)
-            thresh = N * v
-            total += thresh
-            appended_sketch_width = sketch_width * v
-            appended_counters_count = sketch_depth * appended_sketch_width
-            if total >= COUNT_PACKETS:
-                break
-            compress_command = ["--once", "compress", str(total), str(appended_counters_count * B / (B - 1))]
-            command_dcms += ["--once", "expand", str(total), str(appended_sketch_width)]
-            command_gs_compressed += ["--once", "expand", str(total),
-                                      str(appended_counters_count * B / (B - 1))] + compress_command
-            command_gs_uncompressed += ["--once", "expand", str(total), str(appended_counters_count)]
-            j += 1
 
+        command_dcms += generate_dcms_expands_command(N, K, sketch_width, sketch_depth, strategy, False, False, B)
+        command_gs_compressed = command_gs + generate_dcms_expands_command(N, K, sketch_width, sketch_depth, strategy, True, True, B)
+        command_gs_uncompressed = command_gs + generate_dcms_expands_command(N, K, sketch_width, sketch_depth, strategy, True, False, B)
         todo = [(0, "DCMS", command_dcms), (1, "GS-C", command_gs_compressed), (2, "GS-U", command_gs_uncompressed)]
         for args in todo:
             s, type, command = args
@@ -977,7 +926,10 @@ def plot_gs_error_top_N(B: int, MAX_N: int, count_log: int, figure_name: str):
     packets_per_log = COUNT_PACKETS // count_log
     packets_per_expand = 100
     
-    fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
+    fig, (ax) = plt.subplots(1, 1, figsize=(8, 4))
+
+    N = 2
+    K = 2 * 5 * 272 * 10
 
     for sketchtype in ["geometric", "dynamic"]:
         for b in range(2, B):
@@ -989,9 +941,10 @@ def plot_gs_error_top_N(B: int, MAX_N: int, count_log: int, figure_name: str):
                 "--once", "log_memory_usage", "0",
                 "--repeat", "log_memory_usage", str(packets_per_log),
                 "--once", "log_memory_usage", str(COUNT_PACKETS - 1),
-                "--once", "log_heavy_hitters", str(COUNT_PACKETS - 1), str(MAX_N),
-                # "--repeat", "expand", str(packets_per_expand), "1"
+                "--once", "log_heavy_hitters", str(COUNT_PACKETS - 1), str(MAX_N)
             ]
+            is_geometric = (sketchtype == "geometric")
+            command += generate_dcms_expands_command(N, K, sketch_width, sketch_depth, "exponential", is_geometric, False, b)
 
             result = execute_command(command)
             heavy_hitters = result['log_heavy_hitters'].dropna().to_numpy()[0]
@@ -1003,18 +956,13 @@ def plot_gs_error_top_N(B: int, MAX_N: int, count_log: int, figure_name: str):
                 x_aae.append(n)
             y_mem = result['memory_usage'].dropna().to_numpy()
             x_mem = result['memory_usage'].dropna().index.to_numpy()
-            # ax0.plot(x_mem, y_mem, label=f"GS-B{B}")
-            ax1.plot(x_aae, y_aae, label=f"{sketchtype}-B{b}")
+            ax.plot(x_aae, y_aae, label=f"{sketchtype}-B{b}")
 
-    ax0.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
-    ax1.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
-    ax0.grid()
-    ax0.set_ylabel('Memory Usage (Bytes)')
-    ax0.set_xlabel('Packets Count')
-    ax1.grid()
-    ax1.set_ylabel('Heavy Hitters Included')
-    ax1.set_xlabel('AAE')
-    ax1.legend()
+    ax.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
+    ax.grid()
+    ax.set_xlabel('Heavy Hitters Included')
+    ax.set_ylabel('AAE')
+    ax.legend()
     fig.tight_layout()
     plt.savefig(f'figures/{figure_name}')
     plt.close(fig)
@@ -1344,10 +1292,9 @@ def serial():
 
 
 if __name__ == "__main__":
-    plot_gs_error_top_N(4, 10000, 16, "cool_figure.png")
-
     parallel()
     
+    plot_gs_error_top_N(5, 10000, 16, "fig_gs_error_top_N.png")
     plot_dcms_update_query_throughput(8, 6, "fig_dcms_update_query_throughput")
     plot_cms_update_query_throughput(6, 6, 5, 2, "fig_cms_throughput")
     plot_gs_update_query_throughput(8, 6, "fig_gs_update_query_throughput")
