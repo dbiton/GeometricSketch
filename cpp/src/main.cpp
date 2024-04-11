@@ -31,12 +31,12 @@ bool DCMS_USE_SAME_SEED = false;
 
 struct ActionTimer
 {
-	int packets_per_action;
+	long packets_per_action;
 	std::string action_name;
-	int argument;
+	long argument;
 	bool is_repeat;
 
-	ActionTimer(std::string _action_name, int _packets_per_action, bool _is_repeat, int _argument) : action_name(_action_name),
+	ActionTimer(std::string _action_name, long _packets_per_action, bool _is_repeat, long _argument) : action_name(_action_name),
 																					  packets_per_action(_packets_per_action),
 																					  is_repeat(_is_repeat),
 																					argument(_argument){}
@@ -380,10 +380,10 @@ void proccess_input(int argc, const char *argv[])
 			bool is_repeat = "--repeat" == arg;
 			std::string action_name = argv[++i];
 			int packets_per_action = std::stoi(argv[++i]);
-			int argument = 0;
+			long argument = 0;
 			if (action_name == "expand" || action_name == "shrink" | action_name == "compress" | action_name == "log_compress_time" | action_name == "log_expand_and_shrink_time" | action_name == "log_heavy_hitters")
 			{
-				argument = std::stoi(argv[++i]);
+				argument = std::stol(argv[++i]);
 			}
 			ActionTimer action_timer = ActionTimer(action_name, packets_per_action, is_repeat, argument);
 			action_timers.push_back(action_timer);
@@ -407,7 +407,7 @@ void proccess_input(int argc, const char *argv[])
 
 void manual_argument()
 {
-	std::string cmd = "--limit_file ..\\pcaps\\capture.txt 100000 --type geometric --width 272 --depth 5 --branching_factor 2 --once log_memory_usage 0 --repeat log_memory_usage 100 --once log_memory_usage 99999 --once log_heavy_hitters 0 16 --repeat log_heavy_hitters 100 16 --once log_heavy_hitters 99999 16 --repeat expand 100 1";
+	std::string cmd = "--limit_file ..\\pcaps\\capture.txt 4000000 --type geometric --width 272 --depth 5 --branching_factor 2 --once log_memory_usage 0 --repeat log_memory_usage 250000 --once log_memory_usage 3999999 --once log_heavy_hitters 3999999 100 --once expand 2720 1849600 --once expand 3701920 2515456000";
 	std::vector<const char*> args;
 	std::istringstream iss(cmd);
 

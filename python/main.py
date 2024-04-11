@@ -24,13 +24,14 @@ else:
     filepath_executable = "../cpp/DynamicSketch"
 
 COUNT_PACKETS_MAX = 37700000
-COUNT_PACKETS = min(4000000, COUNT_PACKETS_MAX)
+COUNT_PACKETS = min(37700000, COUNT_PACKETS_MAX)
 
-def generate_dcms_expands_command(N: int, K: int, sketch_width: int, sketch_depth: int, 
-                                  strategy_name: str, is_geometric: bool, is_compressed: bool, B = None):
+
+def generate_dcms_expands_command(N: int, K: int, sketch_width: int, sketch_depth: int,
+                                  strategy_name: str, is_geometric: bool, is_compressed: bool, B=None):
     strategy_funcs = {
-        "linear": lambda v: K * v,
-        "exponential": lambda v: K ** v 
+        "linear": lambda x: K * x,
+        "exponential": lambda x: K ** x
     }
     strategy = strategy_funcs[strategy_name]
     j = 1
@@ -38,15 +39,14 @@ def generate_dcms_expands_command(N: int, K: int, sketch_width: int, sketch_dept
     command = []
     while True:
         v = strategy(j)
-        j+=1
-        thresh = N * v
-        total += thresh
+        j += 1
+        total += N * v
         appended_size = sketch_width * v
         if is_geometric:
             appended_size *= sketch_depth
         if total >= COUNT_PACKETS:
             break
-        if not is_compressed: 
+        if not is_compressed:
             command_expand = ["--once", "expand", str(total), str(appended_size)]
             command.extend(command_expand)
         else:
@@ -54,7 +54,7 @@ def generate_dcms_expands_command(N: int, K: int, sketch_width: int, sketch_dept
             command_expand_compressed = ["--once", "expand", str(total), str(appended_size * B / (B - 1))]
             command.extend(command_expand_compressed + compress_command)
     return command
-        
+
 
 def calculate_layer_width(w, b, layer_index):
     return w * b ** layer_index
@@ -75,7 +75,7 @@ def execute_command(arguments: list, packets_path=filepath_packets, count_packet
             f"command: {' '.join(command)} caused error: {result.stderr}")
     raw_output = result.stdout.replace("\n", "").replace("\t", "")[:-2] + ']'
     output_dict = json.loads(raw_output)
-    output_df = pd.DataFrame(output_dict).groupby('index').filter(lambda x : True).set_index("index")
+    output_df = pd.DataFrame(output_dict).groupby('index').filter(lambda x: True).set_index("index")
     return output_df
 
 
@@ -225,7 +225,7 @@ def plot_gs_compress_throughput(B: int, L: int, figure_name: str):
         for b in range(2, B):
             expand_size = sketch_depth * width_for_expand(sketch_width, b, l)
             last_layer_size = sketch_depth * calculate_layer_width(sketch_width, b, l)
-            one_before_last_layer_size = sketch_depth * calculate_layer_width(sketch_width, b, l-1)
+            one_before_last_layer_size = sketch_depth * calculate_layer_width(sketch_width, b, l - 1)
             pre_compress_size = max(0, expand_size - last_layer_size - one_before_last_layer_size)
             avg_ms_per_compress = 0
             for _ in range(count_repeat):
@@ -236,7 +236,7 @@ def plot_gs_compress_throughput(B: int, L: int, figure_name: str):
                     "--branching_factor", str(b),
                     "--once", "expand", "0", str(expand_size),
                     "--once", "compress", "1", str(pre_compress_size),
-                    "--once", "compress", "2", str(expand_size), # used expand size as "huge"
+                    "--once", "compress", "2", str(expand_size),  # used expand size as "huge"
                 ], count_packets=5)
                 avg_ms_per_compress += np.array(result_compress['log_compress_time'].dropna().to_numpy())[-1]
             avg_ms_per_compress /= count_repeat
@@ -248,7 +248,7 @@ def plot_gs_compress_throughput(B: int, L: int, figure_name: str):
                 "--branching_factor", str(b),
                 "--once", "expand", "0", str(expand_size),
                 "--once", "compress", "1", str(expand_size),
-                "--once", "log_query_time", str(COUNT_PACKETS-1)
+                "--once", "log_query_time", str(COUNT_PACKETS - 1)
             ])
             ms_per_query = np.array(result_query['log_query_time'].dropna().to_numpy())[-1]
             throughputs_compress[l - 1, b - 2] = log10(1 / (avg_ms_per_compress * 1e3))
@@ -442,6 +442,7 @@ def plot_ip_distribution(figure_name: str):
     plt.savefig(f'figures/{figure_name}')
     plt.close(fig)
 
+
 def plot_branching_factor(branching_factors: list, count_log: int, figure_name: str):
     sketch_width = 272
     sketch_depth = 5
@@ -539,8 +540,10 @@ def plot_gs_skew_branching_factor(Bs: list, count_log: int, figure_name: str):
                 "--branching_factor", str(B),
                 "--once", "log_average_relative_error", str(COUNT_PACKETS_SYNTH - 1)
             ]
-            result_gs_uncmp = execute_command(command_gs + command_for_uncompressed, packets_path, count_packets=COUNT_PACKETS_SYNTH)
-            result_gs_cmp = execute_command(command_gs + command_for_compress, packets_path, count_packets=COUNT_PACKETS_SYNTH)
+            result_gs_uncmp = execute_command(command_gs + command_for_uncompressed, packets_path,
+                                              count_packets=COUNT_PACKETS_SYNTH)
+            result_gs_cmp = execute_command(command_gs + command_for_compress, packets_path,
+                                            count_packets=COUNT_PACKETS_SYNTH)
             are_cmp = result_gs_cmp['log_average_relative_error'].dropna().to_numpy()[-1]
             are_uncmp = result_gs_uncmp['log_average_relative_error'].dropna().to_numpy()[-1]
             print(a, are_cmp, are_uncmp)
@@ -704,6 +707,7 @@ def plot_gs_cms_static_comparison(B: int, L: int, count_log: int, figure_name):
     plt.savefig(f'figures/{figure_name}')
     plt.close(fig)
 
+
 def plot_gs_dcms_comparison(B: int, K: int, N: int, count_log: int, figure_name: str):
     sketch_width = 50
     sketch_depth = 2
@@ -742,8 +746,10 @@ def plot_gs_dcms_comparison(B: int, K: int, N: int, count_log: int, figure_name:
         ]
 
         command_dcms += generate_dcms_expands_command(N, K, sketch_width, sketch_depth, strategy, False, False, B)
-        command_gs_compressed = command_gs + generate_dcms_expands_command(N, K, sketch_width, sketch_depth, strategy, True, True, B)
-        command_gs_uncompressed = command_gs + generate_dcms_expands_command(N, K, sketch_width, sketch_depth, strategy, True, False, B)
+        command_gs_compressed = command_gs + generate_dcms_expands_command(N, K, sketch_width, sketch_depth, strategy,
+                                                                           True, True, B)
+        command_gs_uncompressed = command_gs + generate_dcms_expands_command(N, K, sketch_width, sketch_depth, strategy,
+                                                                             True, False, B)
         todo = [(0, "DCMS", command_dcms), (1, "GS-C", command_gs_compressed), (2, "GS-U", command_gs_uncompressed)]
         for args in todo:
             s, type, command = args
@@ -920,52 +926,70 @@ def plot_gs_dcms_granular_comparison(B: int, K: int, N: int, count_log: int, fig
     plt.savefig(f'figures/{figure_name}')
     plt.close(fig)
 
-def plot_gs_error_top_N(B: int, MAX_N: int, count_log: int, figure_name: str):
+
+def plot_gs_error_heavy_hitters(B: int, K: int, N: int, MAX_N: int, count_log: int, figure_name: str):
     sketch_width = 272
     sketch_depth = 5
     packets_per_log = COUNT_PACKETS // count_log
-    packets_per_expand = 100
-    
-    fig, (ax) = plt.subplots(1, 1, figsize=(8, 4))
 
-    N = 2
-    K = 2 * 5 * 272 * 10
+    fig, (ax0, ax1, ax2) = plt.subplots(3, 1, figsize=(8, 12))
 
-    for sketchtype in ["geometric", "dynamic"]:
-        for b in range(2, B):
+    for strategy_name in ["exponential", "linear"]:
+        for sketchtype in ["geometric_uncompressed", "geometric_compressed", "dynamic"]:
+            real_sketchtype = sketchtype.split('_')[0]
             command = [
-                "--type", sketchtype,
+                "--type", real_sketchtype,
                 "--width", str(sketch_width),
                 "--depth", str(sketch_depth),
-                "--branching_factor", str(b),
+                "--branching_factor", str(B),
                 "--once", "log_memory_usage", "0",
                 "--repeat", "log_memory_usage", str(packets_per_log),
                 "--once", "log_memory_usage", str(COUNT_PACKETS - 1),
                 "--once", "log_heavy_hitters", str(COUNT_PACKETS - 1), str(MAX_N)
             ]
-            is_geometric = (sketchtype == "geometric")
-            command += generate_dcms_expands_command(N, K, sketch_width, sketch_depth, "exponential", is_geometric, False, b)
+            is_geometric = (real_sketchtype == "geometric")
+            compress = sketchtype.startswith("geometric") and sketchtype.split('_')[1] == "compressed"
+            command += generate_dcms_expands_command(N, K, sketch_width, sketch_depth, strategy_name, is_geometric,
+                                                     compress, B)
 
             result = execute_command(command)
             heavy_hitters = result['log_heavy_hitters'].dropna().to_numpy()[0]
-            absolute_errors = np.array([abs(e['count']-e['query']) for e in heavy_hitters])
-            y_aae = []
-            x_aae = []
-            for n in range(MAX_N//count_log, MAX_N, MAX_N//count_log):
-                y_aae.append(absolute_errors[:n].mean())
-                x_aae.append(n)
+            absolute_errors = np.array([abs(e['count'] - e['query']) for e in heavy_hitters])
+            y_aae = [0]
+            x_aae = np.arange(len(absolute_errors))
+            for i in range(len(absolute_errors)):
+                y_aae.append(y_aae[-1] + absolute_errors[i])
+            y_aae = y_aae[1:]
+            for i in range(1, len(absolute_errors)):
+                y_aae[i] = y_aae[i] / i
+            y_are = []
+            relative_errors = [abs(e['count'] - e['query']) / e['count'] for e in heavy_hitters]
+            for i in range(1, len(relative_errors) + 1):
+                r_es = relative_errors[:i]
+                cur_are = np.array(r_es).mean()
+                y_are.append(cur_are)
             y_mem = result['memory_usage'].dropna().to_numpy()
             x_mem = result['memory_usage'].dropna().index.to_numpy()
-            ax.plot(x_aae, y_aae, label=f"{sketchtype}-B{b}")
-
-    ax.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
-    ax.grid()
-    ax.set_xlabel('Heavy Hitters Included')
-    ax.set_ylabel('AAE')
-    ax.legend()
+            ax0.plot(x_aae, y_aae, label=f"{sketchtype}-B{B}-{strategy_name}", alpha=0.5, linewidth=5)
+            ax1.plot(x_aae, y_are, label=f"{sketchtype}-B{B}-{strategy_name}", alpha=0.5, linewidth=5)
+            ax2.plot(x_mem, y_mem, label=f"{sketchtype}-B{B}-{strategy_name}", alpha=0.5, linewidth=5)
+    ax0.set_yscale('log')
+    ax0.set_xscale('log')
+    ax1.set_yscale('log')
+    ax1.set_xscale('log')
+    ax0.grid()
+    ax0.set_xlabel('Heavy Hitters Included')
+    ax0.set_ylabel('AAE')
+    ax1.grid()
+    ax1.set_xlabel('Heavy Hitters Included')
+    ax1.set_ylabel('ARE')
+    ax1.legend()
+    ax2.set_xlabel('Packets')
+    ax2.set_ylabel('Memory Usage')
     fig.tight_layout()
     plt.savefig(f'figures/{figure_name}')
     plt.close(fig)
+
 
 def plot_gs_undo_expand(B: int, L: int, max_cycles: int, granularity: int,
                         count_log_memory: int, count_log_are: int, figure_name: str):
@@ -1056,7 +1080,7 @@ def plot_gs_dynamic_undo_comparison(B_count: int, count_log: int, figure_name: s
              enumerate(reversed(expand_sizes_geometric))], [])
         command_countmin = [
                                "--type", "dynamic",
-                                "--dcms_same_seed", "1",
+                               "--dcms_same_seed", "1",
                                "--width", str(sketch_width),
                                "--depth", str(sketch_depth),
                                "--repeat", "log_average_relative_error", str(packets_per_log),
@@ -1293,14 +1317,9 @@ def serial():
 
 if __name__ == "__main__":
     parallel()
-    
-    plot_gs_error_top_N(5, 10000, 16, "fig_gs_error_top_N.png")
+    plot_gs_error_heavy_hitters(2, 2, 2 * 5 * 272 * 100, 10000, 16, "fig_gs_error_heavy_hitters.png")
     plot_dcms_update_query_throughput(8, 6, "fig_dcms_update_query_throughput")
     plot_cms_update_query_throughput(6, 6, 5, 2, "fig_cms_throughput")
     plot_gs_update_query_throughput(8, 6, "fig_gs_update_query_throughput")
     plot_gs_dcms_undo_throughput(8, 6, "fig_gs_dcms_undo_throughput")
     plot_gs_compress_throughput(8, 6, "fig_gs_compress_throughput")
-
-    
-    
-    

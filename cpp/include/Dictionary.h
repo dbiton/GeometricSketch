@@ -19,7 +19,7 @@ public:
     virtual int expand(int bytes);
     virtual int shrink(int bytes);
     virtual int getSize() const;
-    virtual int getMemoryUsage() const;
+    virtual uint64_t getMemoryUsage() const;
 };
 
 class CountMinDictionary : public Dictionary
@@ -33,5 +33,5 @@ public:
     void update(uint32_t key, int amount);
     int query(uint32_t key);
 
-    int getMemoryUsage() const; // minimum
+    uint64_t getMemoryUsage() const; // minimum
 };

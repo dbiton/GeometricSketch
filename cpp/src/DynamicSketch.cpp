@@ -94,9 +94,9 @@ int DynamicSketch::shrink(int n)
     return bytes_removed;
 }
 
-int DynamicSketch::getMemoryUsage() const
+uint64_t DynamicSketch::getMemoryUsage() const
 {
-	int memory_usage = sizeof(int); // depth
+    uint64_t memory_usage = sizeof(int); // depth
 	for (const auto &sketch : sketches)
 	{
 		memory_usage += (1 + sketch->width * sketch->depth) * sizeof(int); // counters + width

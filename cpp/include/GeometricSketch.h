@@ -15,7 +15,7 @@ public:
     int expand(int n);
     int undoExpand(int n);
     int compress(int n);
-    int getMemoryUsage() const;
+    uint64_t getMemoryUsage() const;
 
 
 // below should be private, but it isn't to allow testing

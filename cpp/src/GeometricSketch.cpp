@@ -146,9 +146,9 @@ int GeometricSketch::shrink(int n)
     return undoExpand(n);
 }
 
-int GeometricSketch::getMemoryUsage() const
+uint64_t GeometricSketch::getMemoryUsage() const
 {
-    return (int)counters.size() * sizeof(uint32_t) + sizeof(unsigned) * 4;
+    return counters.size() * sizeof(uint32_t) + sizeof(unsigned) * 4;
 }
 
 uint64_t GeometricSketch::hash(uint32_t key, uint32_t row_id, uint32_t layer_id) const

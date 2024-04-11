@@ -18,7 +18,7 @@ public:
 	int shrink(int n);
 
     int getSize() const;
-    int getMemoryUsage() const; // minimum
+	uint64_t getMemoryUsage() const; // minimum
 
 private:
 	void mergeCountMin(CM_type* cm0, CM_type* cm1);

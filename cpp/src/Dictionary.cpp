@@ -21,7 +21,7 @@ int Dictionary::getSize() const
     throw std::runtime_error("Dictionary::getSize - not implemented.");
 }
 
-int Dictionary::getMemoryUsage() const {
+uint64_t Dictionary::getMemoryUsage() const {
     throw std::runtime_error("Dictionary::getMemoryUsage - not implemented.");
 }
 
@@ -44,7 +44,7 @@ int CountMinDictionary::query(uint32_t key)
     return CM_PointEst(this->count_min, key);
 }
 
-int CountMinDictionary::getMemoryUsage() const
+uint64_t CountMinDictionary::getMemoryUsage() const
 {
     return CM_Size(this->count_min);
 }
