@@ -926,17 +926,25 @@ def plot_gs_dcms_granular_comparison(B: int, K: int, N: int, count_log: int, fig
     plt.savefig(f'figures/{figure_name}')
     plt.close(fig)
 
+def get_unique_packets_count(count_include, filepath = filepath_packets):
+    packets = get_packets(filepath)
+    return len(Counter(packets[:count_include]).keys())
 
-def plot_gs_error_heavy_hitters(B: int, K: int, N: int, MAX_N: int, count_log: int, figure_name: str):
+def plot_gs_error_heavy_hitters(B: int, K: int, N: int, hh_percent_min: float, hh_percent_max: float, count_log: int, figure_name: str):
     sketch_width = 272
     sketch_depth = 5
     packets_per_log = COUNT_PACKETS // count_log
 
-    fig, (ax0, ax1, ax2) = plt.subplots(3, 1, figsize=(8, 12))
-
+    fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
+    j = 0
+    unique_packets_count = get_unique_packets_count(COUNT_PACKETS)
+    max_hh = math.ceil(unique_packets_count * hh_percent_max)
+    min_hh = math.floor(unique_packets_count * hh_percent_min)
+    markers = ["v", "^", ">", "<", "D", "o", '*']
     for strategy_name in ["exponential", "linear"]:
         for sketchtype in ["geometric_uncompressed", "geometric_compressed", "dynamic"]:
             real_sketchtype = sketchtype.split('_')[0]
+            
             command = [
                 "--type", real_sketchtype,
                 "--width", str(sketch_width),
@@ -945,7 +953,7 @@ def plot_gs_error_heavy_hitters(B: int, K: int, N: int, MAX_N: int, count_log: i
                 "--once", "log_memory_usage", "0",
                 "--repeat", "log_memory_usage", str(packets_per_log),
                 "--once", "log_memory_usage", str(COUNT_PACKETS - 1),
-                "--once", "log_heavy_hitters", str(COUNT_PACKETS - 1), str(MAX_N)
+                "--once", "log_heavy_hitters", str(COUNT_PACKETS - 1), str(max_hh)
             ]
             is_geometric = (real_sketchtype == "geometric")
             compress = sketchtype.startswith("geometric") and sketchtype.split('_')[1] == "compressed"
@@ -968,24 +976,53 @@ def plot_gs_error_heavy_hitters(B: int, K: int, N: int, MAX_N: int, count_log: i
                 r_es = relative_errors[:i]
                 cur_are = np.array(r_es).mean()
                 y_are.append(cur_are)
+            # when the number of heavy hitters is small, it adds lots of noise to the begining of the graph - so we start from 100
+            y_are = y_are[min_hh:]
+            x_aae = x_aae[min_hh:]
+            y_aae = y_aae[min_hh:]
+            x_aae = x_aae / unique_packets_count
             y_mem = result['memory_usage'].dropna().to_numpy()
             x_mem = result['memory_usage'].dropna().index.to_numpy()
-            ax0.plot(x_aae, y_aae, label=f"{sketchtype}-B{B}-{strategy_name}", alpha=0.5, linewidth=5)
-            ax1.plot(x_aae, y_are, label=f"{sketchtype}-B{B}-{strategy_name}", alpha=0.5, linewidth=5)
-            ax2.plot(x_mem, y_mem, label=f"{sketchtype}-B{B}-{strategy_name}", alpha=0.5, linewidth=5)
+            label_sketchtype_dict = {
+                "geometric_uncompressed" : "GS",
+                "geometric_compressed" : "GS",
+                "dynamic" : "DCMS"
+            }
+            label_compressed_dict = {
+                "geometric_uncompressed" : "U-",
+                "geometric_compressed" : "C-",
+                "dynamic" : ""
+            }
+            label_strategy_dict = {
+                "linear" : "LIN",
+                "exponential" : "EXP"
+            }
+            label_name = f"{label_sketchtype_dict[sketchtype]}-{label_compressed_dict[sketchtype]}{label_strategy_dict[strategy_name]}"
+            ax0.plot(x_aae, y_aae, 
+                     label=label_name, 
+                     marker=markers[j],
+                     markevery=len(y_aae) // count_log
+                     )
+            ax1.plot(x_aae, y_are, 
+                     label=label_name, 
+                     marker=markers[j],
+                    markevery=len(y_aae) // count_log
+                    )
+            j += 1
+            # ax2.plot(x_mem, y_mem, label=f"{sketchtype}-B{B}-{strategy_name}", alpha=0.5, linewidth=5)
     ax0.set_yscale('log')
-    ax0.set_xscale('log')
+    #ax0.set_xscale('log')
     ax1.set_yscale('log')
-    ax1.set_xscale('log')
+    #ax1.set_xscale('log')
     ax0.grid()
-    ax0.set_xlabel('Heavy Hitters Included')
+    ax0.set_xlabel('Percentage Heavy Hitters Included')
     ax0.set_ylabel('AAE')
     ax1.grid()
-    ax1.set_xlabel('Heavy Hitters Included')
+    ax1.set_xlabel('Percentage Heavy Hitters Included')
     ax1.set_ylabel('ARE')
     ax1.legend()
-    ax2.set_xlabel('Packets')
-    ax2.set_ylabel('Memory Usage')
+    # ax2.set_xlabel('Packets')
+    # ax2.set_ylabel('Memory Usage')
     fig.tight_layout()
     plt.savefig(f'figures/{figure_name}')
     plt.close(fig)
@@ -1317,7 +1354,7 @@ def serial():
 
 if __name__ == "__main__":
     parallel()
-    plot_gs_error_heavy_hitters(2, 2, 2 * 5 * 272 * 100, 10000, 16, "fig_gs_error_heavy_hitters.png")
+    plot_gs_error_heavy_hitters(2, 2, 2 * 5 * 272 * 100, 0.001, 0.1, 16, "fig_gs_dcms_heavyhitters_error")
     plot_dcms_update_query_throughput(8, 6, "fig_dcms_update_query_throughput")
     plot_cms_update_query_throughput(6, 6, 5, 2, "fig_cms_throughput")
     plot_gs_update_query_throughput(8, 6, "fig_gs_update_query_throughput")
