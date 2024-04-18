@@ -9,8 +9,10 @@
 
 #include "DynamicSketch.h"
 #include "GeometricSketch.h"
+#include "GeometricSketchMH.h"
 #include "Dictionary.h"
 
+#include "MultiHash.h"
 
 typedef std::chrono::high_resolution_clock chrono_clock;
 typedef std::chrono::duration<double, std::milli> duration;
@@ -82,6 +84,10 @@ Dictionary *createDictionary(std::string type)
 	else if (type == "geometric")
 	{
 		return new GeometricSketch(CM_WIDTH, CM_DEPTH, BRANCHING_FACTOR);
+	}
+	else if (type == "multihash")
+	{
+		return new GeometricSketchMH(CM_WIDTH, CM_DEPTH, BRANCHING_FACTOR);
 	}
     else if (type == "dynamic"){
         return new DynamicSketch(CM_WIDTH, CM_DEPTH, DCMS_USE_SAME_SEED);
@@ -437,4 +443,39 @@ int main(int argc, const char *argv[])
 	// test();
     // manual_argument();
     proccess_input(argc, argv);
+
+	/*
+	uint64_t sum = 0;
+	int key = 0;
+
+	double M_OP = 100;
+	int layer_count = 6;
+
+	MultiHash mh;
+	mh.setFirstSubHashModulus(16);
+	mh.setSubHashModulus(4);
+    auto t_start = chrono_clock::now();
+	for (int i = 0; i < M_OP * 1000000 / layer_count; i++) {
+		mh.initialize(key, i);
+		auto vf = mh.first();
+		sum += vf;
+		for (int j = 0; j < layer_count - 1; j++) {
+			auto v = mh.next();
+			sum += v;
+		}
+	}
+    std::chrono::duration<float> d = chrono_clock::now() - t_start;
+    std::cout << "MultiHash " << M_OP / d.count() << " MOPS" << std::endl;
+
+    t_start = chrono_clock::now();
+    for(int i=0; i< M_OP * 1000000; i++){
+        auto v = XXH64(&key, sizeof(uint64_t), i);
+        sum += v;
+    }
+    d = chrono_clock::now() - t_start;
+    std::cout << "XXH64 " << M_OP / d.count() << " MOPS" << std::endl;
+
+
+	return sum;
+	*/
 }

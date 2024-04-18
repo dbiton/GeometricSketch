@@ -24,7 +24,7 @@ else:
     filepath_executable = "../cpp/DynamicSketch"
 
 COUNT_PACKETS_MAX = 37700000
-COUNT_PACKETS = min(37700000, COUNT_PACKETS_MAX)
+COUNT_PACKETS = min(10000000, COUNT_PACKETS_MAX)
 
 
 def generate_dcms_expands_command(N: int, K: int, sketch_width: int, sketch_depth: int,
@@ -132,38 +132,46 @@ def plot_gs_update_query_throughput(B: int, L: int, figure_name: str):
     sketch_width = 272
     sketch_depth = 5
 
-    fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
+    fig, ((ax0, ax1), (ax2, ax3)) = plt.subplots(2, 2, figsize=(8, 8))
     throughputs_update = np.zeros((L, B - 2))
     throughputs_query = np.zeros((L, B - 2))
-    for l in range(L):
-        for b in range(2, B):
-            expand_size = sketch_width * ((b ** (l + 1) - 1) / (b - 1)) - sketch_width
-            result = execute_command([
-                "--type", "geometric",
-                "--width", str(sketch_width),
-                "--depth", str(sketch_depth),
-                "--branching_factor", str(b),
-                "--once", "expand", "0", str(expand_size),
-                "--once", "log_update_time", str(COUNT_PACKETS - 1),
-                "--once", "log_query_time", str(COUNT_PACKETS - 1)])
+    for sketch_type, [_ax0, _ax1] in zip(["geometric", "multihash"], [[ax0, ax1], [ax2, ax3]]):
+        for l in range(L):
+            for b in range(2, B):
+                expand_size = sketch_width * ((b ** (l + 1) - 1) / (b - 1)) - sketch_width
+                result = execute_command([
+                    "--type", sketch_type,
+                    "--width", str(sketch_width),
+                    "--depth", str(sketch_depth),
+                    "--branching_factor", str(b),
+                    "--once", "expand", "0", str(expand_size),
+                    "--once", "log_update_time", str(COUNT_PACKETS - 1),
+                    "--once", "log_query_time", str(COUNT_PACKETS - 1)])
 
-            ms_per_update = np.array(result['log_update_time'].dropna().to_numpy()).mean()
-            throughputs_update[l, b - 2] = 1 / (ms_per_update * 1e3)
-            ms_per_query = np.array(result['log_query_time'].dropna().to_numpy()).mean()
-            throughputs_query[l, b - 2] = 1 / (ms_per_query * 1e3)
+                ms_per_update = np.array(result['log_update_time'].dropna().to_numpy()).mean()
+                throughputs_update[l, b - 2] = 1 / (ms_per_update * 1e3)
+                ms_per_query = np.array(result['log_query_time'].dropna().to_numpy()).mean()
+                throughputs_query[l, b - 2] = 1 / (ms_per_query * 1e3)
 
-    im0 = ax0.imshow(throughputs_update, origin='lower', extent=[2, B, 0, L])
-    im1 = ax1.imshow(throughputs_query, origin='lower', extent=[2, B, 0, L])
-    for (throughputs, ax) in [(throughputs_update, ax0), (throughputs_query, ax1)]:
-        for (j, i), label in np.ndenumerate(throughputs):
-            ax.text(i + 2.5, j + 0.5, int(label), ha='center', va='center')
+        im0 = _ax0.imshow(throughputs_update, origin='lower', extent=[2, B, 0, L])
+        im1 = _ax1.imshow(throughputs_query, origin='lower', extent=[2, B, 0, L])
+        for (throughputs, ax) in [(throughputs_update, _ax0), (throughputs_query, _ax1)]:
+            for (j, i), label in np.ndenumerate(throughputs):
+                ax.text(i + 2.5, j + 0.5, int(label), ha='center', va='center')
 
-    ax0.set_title('GS Update MOPS')
-    ax0.set_xlabel('Branching Factor')
-    ax0.set_ylabel('Layers')
-    ax1.set_title('Uncompressed GS Query MOPS')
-    ax1.set_xlabel('Branching Factor')
-    ax1.set_ylabel('Layers')
+    ax0.set_title('GS U MOPS')
+    ax0.set_xlabel('B')
+    ax0.set_ylabel('L')
+    ax1.set_title('GS Q MOPS')
+    ax1.set_xlabel('B')
+    ax1.set_ylabel('L')
+   
+    ax2.set_title('MH GS U MOPS')
+    ax2.set_xlabel('B')
+    ax2.set_ylabel('L')
+    ax3.set_title('MH GS Q MOPS')
+    ax3.set_xlabel('B')
+    ax3.set_ylabel('L')
     fig.tight_layout()
     plt.savefig(f'figures/{figure_name}')
     plt.close(fig)
@@ -1353,10 +1361,10 @@ def serial():
 
 
 if __name__ == "__main__":
-    parallel()
-    plot_gs_error_heavy_hitters(2, 2, 2 * 5 * 272 * 100, 0.001, 0.1, 16, "fig_gs_dcms_heavyhitters_error")
-    plot_dcms_update_query_throughput(8, 6, "fig_dcms_update_query_throughput")
-    plot_cms_update_query_throughput(6, 6, 5, 2, "fig_cms_throughput")
+    # parallel()
+    # plot_gs_error_heavy_hitters(2, 2, 2 * 5 * 272 * 100, 0.001, 0.1, 16, "fig_gs_dcms_heavyhitters_error")
+    # plot_dcms_update_query_throughput(8, 6, "fig_dcms_update_query_throughput")
+    # plot_cms_update_query_throughput(6, 6, 5, 2, "fig_cms_throughput")
     plot_gs_update_query_throughput(8, 6, "fig_gs_update_query_throughput")
-    plot_gs_dcms_undo_throughput(8, 6, "fig_gs_dcms_undo_throughput")
-    plot_gs_compress_throughput(8, 6, "fig_gs_compress_throughput")
+    # plot_gs_dcms_undo_throughput(8, 6, "fig_gs_dcms_undo_throughput")
+    # plot_gs_compress_throughput(8, 6, "fig_gs_compress_throughput")

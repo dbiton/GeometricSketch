@@ -36,6 +36,12 @@
     <ClInclude Include="include\doctest.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\MultiHash.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\GeometricSketchMH.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp">
@@ -63,6 +69,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\xxhash.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MultiHash.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\GeometricSketchMH.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

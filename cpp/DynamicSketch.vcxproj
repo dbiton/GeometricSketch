@@ -24,6 +24,8 @@
     <ClInclude Include="include\doctest.h" />
     <ClInclude Include="include\DynamicSketch.h" />
     <ClInclude Include="include\GeometricSketch.h" />
+    <ClInclude Include="include\GeometricSketchMH.h" />
+    <ClInclude Include="include\MultiHash.h" />
     <ClInclude Include="include\prng.h" />
     <ClInclude Include="include\rand48.h" />
   </ItemGroup>
@@ -32,7 +34,9 @@
     <ClCompile Include="src\Dictionary.cpp" />
     <ClCompile Include="src\DynamicSketch.cpp" />
     <ClCompile Include="src\GeometricSketch.cpp" />
+    <ClCompile Include="src\GeometricSketchMH.cpp" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\MultiHash.cpp" />
     <ClCompile Include="src\prng.cc" />
     <ClCompile Include="src\rand48.cc" />
     <ClCompile Include="src\xxhash.c" />
