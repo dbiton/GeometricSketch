@@ -24,7 +24,7 @@ else:
     filepath_executable = "../cpp/DynamicSketch"
 
 COUNT_PACKETS_MAX = 37700000
-COUNT_PACKETS = min(10000000, COUNT_PACKETS_MAX)
+COUNT_PACKETS = min(37700000, COUNT_PACKETS_MAX)
 
 
 def generate_dcms_expands_command(N: int, K: int, sketch_width: int, sketch_depth: int,
