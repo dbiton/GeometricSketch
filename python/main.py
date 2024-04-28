@@ -127,8 +127,47 @@ def plot_cms_update_query_throughput(count_width: int, count_depth: int, depth: 
     plt.savefig(f'figures/{figure_name}')
     plt.close(fig)
 
-
 def plot_gs_update_query_throughput(B: int, L: int, figure_name: str):
+    sketch_width = 272
+    sketch_depth = 5
+
+    fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
+    throughputs_update = np.zeros((L, B - 2))
+    throughputs_query = np.zeros((L, B - 2))
+    for l in range(L):
+        for b in range(2, B):
+            expand_size = sketch_width * ((b ** (l + 1) - 1) / (b - 1)) - sketch_width
+            result = execute_command([
+                "--type", "geometric",
+                "--width", str(sketch_width),
+                "--depth", str(sketch_depth),
+                "--branching_factor", str(b),
+                "--once", "expand", "0", str(expand_size),
+                "--once", "log_update_time", str(COUNT_PACKETS - 1),
+                "--once", "log_query_time", str(COUNT_PACKETS - 1)])
+
+            ms_per_update = np.array(result['log_update_time'].dropna().to_numpy()).mean()
+            throughputs_update[l, b - 2] = 1 / (ms_per_update * 1e3)
+            ms_per_query = np.array(result['log_query_time'].dropna().to_numpy()).mean()
+            throughputs_query[l, b - 2] = 1 / (ms_per_query * 1e3)
+
+    im0 = ax0.imshow(throughputs_update, origin='lower', extent=[2, B, 0, L])
+    im1 = ax1.imshow(throughputs_query, origin='lower', extent=[2, B, 0, L])
+    for (throughputs, ax) in [(throughputs_update, ax0), (throughputs_query, ax1)]:
+        for (j, i), label in np.ndenumerate(throughputs):
+            ax.text(i + 2.5, j + 0.5, int(label), ha='center', va='center')
+
+    ax0.set_title('GS Update MOPS')
+    ax0.set_xlabel('Branching Factor')
+    ax0.set_ylabel('Layers')
+    ax1.set_title('Uncompressed GS Query MOPS')
+    ax1.set_xlabel('Branching Factor')
+    ax1.set_ylabel('Layers')
+    fig.tight_layout()
+    plt.savefig(f'figures/{figure_name}')
+    plt.close(fig)
+
+def plot_gs_mh_update_query_throughput(B: int, L: int, figure_name: str):
     sketch_width = 272
     sketch_depth = 5
 
@@ -1321,8 +1360,10 @@ def parallel():
         plot_dcms_memory_usage,
         plot_branching_factor,
         plot_ip_distribution_zipf,
-        plot_ip_distribution
+        plot_ip_distribution,
+        plot_gs_error_heavy_hitters
     ]
+
     args = [
         (3, 24, "plot_gs_dynamic_undo_comparison",),
         (2, 2, 2 * 5 * 272 * 100, 32, "fig_gs_dcms_comparison",),
@@ -1336,6 +1377,7 @@ def parallel():
         ([2, 4, 8], 16, "fig_branching_factor",),
         ("fig_ip_distribution_zipf",),
         ("fig_ip_distribution",),
+        (2, 2, 2 * 5 * 272 * 100, 0.001, 0.1, 16, "fig_gs_dcms_heavyhitters_error",),
     ]
 
     processes = [mp.Process(target=func, args=args) for (func, args) in zip(funcs, args)]
@@ -1344,6 +1386,7 @@ def parallel():
 
 
 def serial():
+    plot_gs_error_heavy_hitters(2, 2, 2 * 5 * 272 * 100, 0.001, 0.1, 16, "fig_gs_dcms_heavyhitters_error")
     plot_gs_dynamic_undo_comparison(3, 24, "plot_gs_dynamic_undo_comparison")
     plot_gs_dcms_comparison(2, 2, 2 * 5 * 272 * 100, 32, "fig_gs_dcms_comparison")
     plot_gs_cms_derivative_comparison(2, 4, 16, "fig_gs_cms_derivative")
@@ -1361,10 +1404,9 @@ def serial():
 
 
 if __name__ == "__main__":
-    # parallel()
-    # plot_gs_error_heavy_hitters(2, 2, 2 * 5 * 272 * 100, 0.001, 0.1, 16, "fig_gs_dcms_heavyhitters_error")
-    # plot_dcms_update_query_throughput(8, 6, "fig_dcms_update_query_throughput")
-    # plot_cms_update_query_throughput(6, 6, 5, 2, "fig_cms_throughput")
+    parallel()
+    plot_dcms_update_query_throughput(8, 6, "fig_dcms_update_query_throughput")
+    plot_cms_update_query_throughput(6, 6, 5, 2, "fig_cms_throughput")
     plot_gs_update_query_throughput(8, 6, "fig_gs_update_query_throughput")
-    # plot_gs_dcms_undo_throughput(8, 6, "fig_gs_dcms_undo_throughput")
-    # plot_gs_compress_throughput(8, 6, "fig_gs_compress_throughput")
+    plot_gs_dcms_undo_throughput(8, 6, "fig_gs_dcms_undo_throughput")
+    plot_gs_compress_throughput(8, 6, "fig_gs_compress_throughput")
