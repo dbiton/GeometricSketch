@@ -20,52 +20,61 @@ GeometricSketchMH::~GeometricSketchMH()
 
 void GeometricSketchMH::update(uint32_t key, int amount)
 {
-    for (unsigned row_id = 0; row_id < depth; row_id++)
+    for (uint32_t row_id = 0; row_id < depth; row_id++)
     {
-        int vector_index = getLastVectorIndexFromKey(key, row_id);
-        long actual_index = (long)vector_index - compressed_counters;
+        multihash.initialize(key, row_id);
+        long vector_index = getLastVectorIndexFromKey(key, row_id);
+        long actual_index = vector_index - compressed_counters;
         counters[actual_index] += amount;
     }
 }
 
 int GeometricSketchMH::getLastVectorIndexFromKey(
     uint32_t key,
-    uint16_t row_id
+    uint32_t row_id
 ) {
-    multihash.initialize(key, row_id);
     int prev_layer_id = 0;
     int prev_layer_begin_counter_index = 0;
     int prev_row_index = multihash.first();
     int vector_index = rowIndexToVectorIndex(row_id, prev_row_index);
     int prev_B_pow = 1;
+    const int max_vector_index = counters.size() + compressed_counters - 1;
     int prev_vector_index = vector_index;
-    while (vector_index < counters.size() + compressed_counters) {
+    for (
+        ;
+        vector_index != -1;
+        vector_index = getNextVectorIndexFromKey(key, row_id,
+            prev_layer_id, prev_layer_begin_counter_index, prev_row_index, prev_B_pow)
+        ) {
         prev_vector_index = vector_index;
-        vector_index = getNextVectorIndexFromKey(key, row_id, prev_layer_id,
-            prev_layer_begin_counter_index, prev_row_index, prev_B_pow);
     }
     return prev_vector_index;
 }
 
 int GeometricSketchMH::getNextVectorIndexFromKey(
     uint32_t key,
-    uint16_t row_id,
+    uint32_t row_id,
     int& prev_layer_id,
     int& prev_layer_row_index,
     int& prev_counter_row_index,
     int& prev_B_pow
 ) {
-    int B = (int)branching_factor;
-    int W = (int)width;
-    int layer_begin_counter_index = prev_layer_row_index + W * prev_B_pow;
-    int h = multihash.next();
-    int counter_index = (prev_counter_row_index - prev_layer_row_index) * B + h + layer_begin_counter_index;
+    const int B = (int)branching_factor;
+    const int W = (int)width;
+    const int layer_begin_counter_index = prev_layer_row_index + W * prev_B_pow;
+    const int counter_index_first_child = (prev_counter_row_index - prev_layer_row_index) * B + layer_begin_counter_index;
+    const int max_vector_index = counters.size() + compressed_counters;
+    if (rowIndexToVectorIndex(row_id, counter_index_first_child) >= max_vector_index) {
+        return -1;
+    }
+    const int h = multihash.next();
+    const int counter_index = counter_index_first_child + h;
     prev_layer_id += 1;
     prev_layer_row_index = layer_begin_counter_index;
     prev_counter_row_index = counter_index;
     prev_B_pow *= B;
-    int vector_index = rowIndexToVectorIndex(row_id, counter_index);
-    return vector_index;
+    const int vector_index = rowIndexToVectorIndex(row_id, counter_index);
+    return (vector_index >= max_vector_index) ? -1 : vector_index;
 }
 
 int GeometricSketchMH::query(uint32_t key)
@@ -78,16 +87,19 @@ int GeometricSketchMH::query(uint32_t key)
         uint32_t current_estimate = 0;
         int prev_layer_id = 0;
         int prev_layer_begin_counter_index = 0;
-        int prev_row_index = multihash.first();
+        int prev_row_index = hash(key, row_id, 0UL) % width;
         int prev_B_pow = 1;
-        int vector_index = rowIndexToVectorIndex(row_id, prev_row_index);
-        while (vector_index < counters.size() + O) {
+        long vector_index = rowIndexToVectorIndex(row_id, prev_row_index);
+        for (
+            ;
+            vector_index != -1;
+            vector_index = getNextVectorIndexFromKey(key, row_id,
+                prev_layer_id, prev_layer_begin_counter_index, prev_row_index, prev_B_pow)
+            ) {
             if (vector_index >= O) {
-                long actual_index = (long)vector_index - O;
+                long actual_index = vector_index - O;
                 current_estimate += counters[actual_index];
             }
-            vector_index = getNextVectorIndexFromKey(key, row_id, prev_layer_id,
-                prev_layer_begin_counter_index, prev_row_index, prev_B_pow);
         }
         estimate = std::min(estimate, current_estimate);
     }
@@ -100,17 +112,16 @@ int GeometricSketchMH::undoExpand(int n)
     for (int i_child = (int)counters.size() - 1; i_child >= (int)counters.size() - n; i_child--)
     {
         long actual_index_child = i_child - compressed_counters;
-        int i_parent = getVectorIndexOfParent(actual_index_child);
+        long i_parent = getVectorIndexOfParent(actual_index_child);
         if (i_parent == -1 || i_parent - (int)compressed_counters < 0)
         {
             break;
         }
-        long actual_index_parent = (long)i_parent - compressed_counters;
+        long actual_index_parent = i_parent - compressed_counters;
         counters[actual_index_parent] += counters[actual_index_child];
         counter_undo++;
     }
     counters.resize(counters.size() - counter_undo);
-
     return counter_undo;
 }
 
@@ -163,7 +174,7 @@ uint64_t GeometricSketchMH::hash(uint32_t key, uint32_t row_id, uint32_t layer_i
 
 int GeometricSketchMH::rowIndexToLayerId(int row_index, int& layer_index) const
 {
-    int B = branching_factor;
+    const int B = branching_factor;
     layer_index = row_index;
     int layer_width = width;
     int layer_id = 0;
@@ -177,16 +188,16 @@ int GeometricSketchMH::rowIndexToLayerId(int row_index, int& layer_index) const
 
 int GeometricSketchMH::getVectorIndexOfParent(int vector_index) const
 {
-    int B = (int)branching_factor;
-    int W = (int)width;
+    const int B = (int)branching_factor;
+    const int W = (int)width;
     int counter_row_index, counter_layer_index;
-    int row_id = vectorIndexToRowId(vector_index, counter_row_index);
-    int counter_layer_id = rowIndexToLayerId(counter_row_index, counter_layer_index);
+    const int row_id = vectorIndexToRowId(vector_index, counter_row_index);
+    const int counter_layer_id = rowIndexToLayerId(counter_row_index, counter_layer_index);
     if (counter_layer_id <= 0) {
         return -1;
     }
-    int parent_layer_index = counter_layer_index / B;
-    int parent_row_index = parent_layer_index + getRowIndexOfLayer(counter_layer_id - 1);
+    const int parent_layer_index = counter_layer_index / B;
+    const int parent_row_index = parent_layer_index + getRowIndexOfLayer(counter_layer_id - 1);
     return rowIndexToVectorIndex(row_id, parent_row_index);
 }
 
@@ -196,27 +207,27 @@ int GeometricSketchMH::rowIndexToVectorIndex(int row_id, int row_index) const {
 
 int GeometricSketchMH::getVectorIndexOfFirstChild(int vector_index) const
 {
-    int B = (int)branching_factor;
-    int W = (int)width;
+    const int B = (int)branching_factor;
+    const int W = (int)width;
     int counter_row_index, counter_layer_index;
-    int row_id = vectorIndexToRowId(vector_index, counter_row_index);
-    int counter_layer_id = rowIndexToLayerId(counter_row_index, counter_layer_index);
-    int child_layer_index = counter_layer_index * B;
-    int child_row_index = child_layer_index + getRowIndexOfLayer(counter_layer_id + 1);
+    const int row_id = vectorIndexToRowId(vector_index, counter_row_index);
+    const int counter_layer_id = rowIndexToLayerId(counter_row_index, counter_layer_index);
+    const int child_layer_index = counter_layer_index * B;
+    const int child_row_index = child_layer_index + getRowIndexOfLayer(counter_layer_id + 1);
     return rowIndexToVectorIndex(row_id, child_row_index);
 }
 
 int GeometricSketchMH::vectorIndexToRowId(int vector_index, int& row_index) const {
     row_index = vector_index / depth;
-    int row_id = vector_index % depth;
+    const int row_id = vector_index % depth;
     return row_id;
 }
 
 int GeometricSketchMH::getRowIndexOfLayer(int layer_id) const
 {
-    int L = layer_id;
-    int B = (int)branching_factor;
-    int W = (int)width;
+    const int L = layer_id;
+    const int B = (int)branching_factor;
+    const int W = (int)width;
     int B_raised_L = 1;
     // better than pow for our range of values - checked myself
     for (int i = 0; i < L; i++) B_raised_L *= B;
