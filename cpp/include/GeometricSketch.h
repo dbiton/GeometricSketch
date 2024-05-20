@@ -20,31 +20,33 @@ public:
 
 // below should be private, but it isn't to allow testing
 // private:
-    uint64_t hash(uint32_t key, uint32_t row_id, uint32_t layer_id) const;
+    inline uint64_t hash(uint32_t key, uint32_t row_id, uint32_t layer_id) const;
     
-    int getLastVectorIndexFromKey(
+    inline int getLastVectorIndexFromKey(
         uint32_t key,
-        uint16_t row_id
+        uint32_t row_id
     ) const;
 
-    int getNextVectorIndexFromKey(
+    inline int getNextVectorIndexFromKey(
         uint32_t key,
-        uint16_t row_id,
-        int& layer_id,
-        int& layer_begin_counter_index,
-        int& last_counter_index,
-        int& B_pow
+        uint32_t row_id,
+        int& prev_layer_id,
+        int& prev_layer_row_index,
+        int& prev_counter_row_index,
+        int& prev_B_pow
     ) const;
 
-    int rowIndexToLayerId(int row_offset, int& layer_offset) const;
-    int rowIndexToVectorIndex(int row_id, int row_offset) const;
+    inline int rowIndexToLayerId(int row_offset, int& layer_offset) const;
+    inline int rowIndexToVectorIndex(int row_id, int row_offset) const;
     
-    int vectorIndexToRowId(int vector_index, int& row_offset) const;
+    inline int vectorIndexToRowId(int vector_index, int& row_offset) const;
 
-    int getRowIndexOfLayer(int layer_id) const;
+    inline int getRowIndexOfLayer(int layer_id) const;
 
-    int getVectorIndexOfFirstChild(int vector_index) const;
-    int getVectorIndexOfParent(int counter_index) const;
+    inline int getVectorIndexOfFirstChild(int vector_index) const;
+    inline int getVectorIndexOfFirstChildFast(uint32_t row_id, int prev_layer_row_index, int prev_counter_row_index, int prev_B_pow) const;
+
+    inline int getVectorIndexOfParent(int counter_index) const;
 
 
 // fields
