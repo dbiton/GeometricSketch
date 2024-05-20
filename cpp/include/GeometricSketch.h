@@ -44,7 +44,6 @@ public:
     inline int getRowIndexOfLayer(int layer_id) const;
 
     inline int getVectorIndexOfFirstChild(int vector_index) const;
-    inline int getVectorIndexOfFirstChildFast(uint32_t row_id, int prev_layer_row_index, int prev_counter_row_index, int prev_B_pow) const;
 
     inline int getVectorIndexOfParent(int counter_index) const;
 
@@ -52,8 +51,8 @@ public:
 // fields
 
     std::vector<uint32_t> counters;
-    unsigned compressed_counters;
-    unsigned branching_factor;
-    unsigned width;
-    unsigned depth;
+    int compressed_counters;
+    int branching_factor;
+    int width;
+    int depth;
 };

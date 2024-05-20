@@ -20,8 +20,8 @@ void GeometricSketch::update(uint32_t key, int amount)
 {
     for (uint32_t row_id = 0; row_id < depth; row_id++)
     {
-        int vector_index = getLastVectorIndexFromKey(key, row_id);
-        long actual_index = (long)vector_index - compressed_counters;
+        long vector_index = getLastVectorIndexFromKey(key, row_id);
+        long actual_index = vector_index - compressed_counters;
         counters[actual_index] += amount;
     }
 }
@@ -37,12 +37,15 @@ int GeometricSketch::getLastVectorIndexFromKey(
     int prev_B_pow = 1;
     const int max_vector_index = counters.size() + compressed_counters - 1;
     int prev_vector_index = vector_index;
-    while (getVectorIndexOfFirstChildFast(row_id, prev_layer_begin_counter_index, prev_row_index, prev_B_pow) <= max_vector_index) {
+    for (
+        ;
+        vector_index != -1;
+        vector_index = getNextVectorIndexFromKey(key, row_id, 
+            prev_layer_id, prev_layer_begin_counter_index, prev_row_index, prev_B_pow)
+        ) {
         prev_vector_index = vector_index;
-        vector_index = getNextVectorIndexFromKey(key, row_id, prev_layer_id,
-            prev_layer_begin_counter_index, prev_row_index, prev_B_pow);
     }
-    return (vector_index <= max_vector_index) ? vector_index : prev_vector_index;
+    return prev_vector_index;
 }
 
 int GeometricSketch::getNextVectorIndexFromKey(
@@ -56,13 +59,20 @@ int GeometricSketch::getNextVectorIndexFromKey(
     const int B = (int)branching_factor;
     const int W = (int)width;
     const int layer_begin_counter_index = prev_layer_row_index + W * prev_B_pow;
+    const int counter_index_first_child = (prev_counter_row_index - prev_layer_row_index) * B + layer_begin_counter_index;
+    if (rowIndexToVectorIndex(row_id, counter_index_first_child) >= counters.size() + compressed_counters) {
+        return -1;
+    }
     const int h = hash(key, row_id, prev_layer_id + 1) % B;
-    const int counter_index = (prev_counter_row_index - prev_layer_row_index) * B + h + layer_begin_counter_index;
+    const int counter_index = counter_index_first_child + h;
     prev_layer_id += 1;
     prev_layer_row_index = layer_begin_counter_index;
     prev_counter_row_index = counter_index;
     prev_B_pow *= B;
     const int vector_index = rowIndexToVectorIndex(row_id, counter_index);
+    if (vector_index >= counters.size() + compressed_counters) {
+        return -1;
+    }
     return vector_index;
 }
 
@@ -77,14 +87,17 @@ int GeometricSketch::query(uint32_t key)
         int prev_layer_begin_counter_index = 0;
         int prev_row_index = hash(key, row_id, 0UL) % width;
         int prev_B_pow = 1;
-        int vector_index = rowIndexToVectorIndex(row_id, prev_row_index);
-        while (vector_index < counters.size() + O){
+        long vector_index = rowIndexToVectorIndex(row_id, prev_row_index);        
+        for (
+            ;
+            vector_index != -1;
+            vector_index = getNextVectorIndexFromKey(key, row_id,
+                prev_layer_id, prev_layer_begin_counter_index, prev_row_index, prev_B_pow)
+            ) {
             if (vector_index >= O) {
-                long actual_index = (long)vector_index - O;
+                long actual_index = vector_index - O;
                 current_estimate += counters[actual_index];
             }
-            vector_index = getNextVectorIndexFromKey(key, row_id, prev_layer_id,
-                prev_layer_begin_counter_index, prev_row_index, prev_B_pow);
         }
         estimate = std::min(estimate, current_estimate);
     }
@@ -97,12 +110,12 @@ int GeometricSketch::undoExpand(int n)
     for (int i_child = (int)counters.size() - 1; i_child >= (int)counters.size() - n; i_child--)
     {
         long actual_index_child = i_child - compressed_counters;
-        int i_parent = getVectorIndexOfParent(actual_index_child);
+        long i_parent = getVectorIndexOfParent(actual_index_child);
         if (i_parent == -1 || i_parent - (int)compressed_counters < 0)
         {
             break;
         }
-        long actual_index_parent = (long)i_parent - compressed_counters;
+        long actual_index_parent = i_parent - compressed_counters;
         counters[actual_index_parent] += counters[actual_index_child];
         counter_undo++;
     }
@@ -203,21 +216,6 @@ int GeometricSketch::getVectorIndexOfFirstChild(int vector_index) const
     return rowIndexToVectorIndex(row_id, child_row_index);
 }
 
-int GeometricSketch::getVectorIndexOfFirstChildFast(
-    uint32_t row_id,
-    int prev_layer_row_index,
-    int prev_counter_row_index,
-    int prev_B_pow
-) const
-{
-    const int B = (int)branching_factor;
-    const int W = (int)width;
-    const int layer_begin_counter_index = prev_layer_row_index + W * prev_B_pow;
-    const int counter_index = (prev_counter_row_index - prev_layer_row_index) * B + layer_begin_counter_index;
-    const int vector_index = rowIndexToVectorIndex(row_id, counter_index);
-    return vector_index;
-}
-
 int GeometricSketch::vectorIndexToRowId(int vector_index, int& row_index) const {
     row_index = vector_index / depth;
     const int row_id = vector_index % depth;
@@ -237,9 +235,9 @@ int GeometricSketch::getRowIndexOfLayer(int layer_id) const
 
 
 TEST_SUITE("GeometricSketch Helper Methods") {
-    constexpr auto W = 613;
-    constexpr auto D = 7;
-    constexpr auto B = 12;
+    constexpr auto W = 10;
+    constexpr auto D = 2;
+    constexpr auto B = 2;
     GeometricSketch gs(W, D, B);
 
     /* The row index (index inside row) of the first counter of layer l in row r */
@@ -312,12 +310,18 @@ TEST_SUITE("GeometricSketch Helper Methods") {
         int prev_row_index = gs.hash(KEY, ROW_ID, 0) % W;
         int prev_B_pow = 1;
 
+        // so get vector index doesn't return -1
+        int large_expand = 10000;
+        gs.expand(large_expand);
+
         int actual_vector_index_1 = gs.getNextVectorIndexFromKey(KEY, ROW_ID, prev_layer_id,
             prev_layer_begin_counter_index, prev_row_index, prev_B_pow);
         int actual_vector_index_2 = gs.getNextVectorIndexFromKey(KEY, ROW_ID, prev_layer_id,
             prev_layer_begin_counter_index, prev_row_index, prev_B_pow);
         int actual_vector_index_3 = gs.getNextVectorIndexFromKey(KEY, ROW_ID, prev_layer_id,
             prev_layer_begin_counter_index, prev_row_index, prev_B_pow);
+
+        gs.undoExpand(large_expand);
 
         REQUIRE(actual_vector_index_1 == expected_vector_index_1);
         REQUIRE(actual_vector_index_2 == expected_vector_index_2);
