@@ -22,12 +22,21 @@ public:
 // private:
     inline uint64_t hash(uint32_t key, uint32_t row_id, uint32_t layer_id) const;
     
-    inline int getLastVectorIndexFromKey(
+    inline long getLastVectorIndexFromKey(
         uint32_t key,
         uint32_t row_id
     ) const;
 
-    inline int getNextVectorIndexFromKey(
+    inline long getFirstAllocatedVectorIndexFromKey(
+        uint32_t key,
+        uint32_t row_id,
+        int& prev_layer_id,
+        int& prev_layer_row_index,
+        int& prev_counter_row_index,
+        int& prev_B_pow
+    ) const;
+
+    inline long getNextVectorIndexFromKey(
         uint32_t key,
         uint32_t row_id,
         int& prev_layer_id,

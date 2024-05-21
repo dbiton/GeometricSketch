@@ -26,29 +26,42 @@ void GeometricSketch::update(uint32_t key, int amount)
     }
 }
 
-int GeometricSketch::getLastVectorIndexFromKey(
+long GeometricSketch::getLastVectorIndexFromKey(
     uint32_t key,
     uint32_t row_id
 ) const {
-    int prev_layer_id = 0;
-    int prev_layer_begin_counter_index = 0;
-    int prev_row_index = hash(key, row_id, 0) % width;
-    int vector_index = rowIndexToVectorIndex(row_id, prev_row_index);
-    int prev_B_pow = 1;
+    int prev_layer_id, prev_layer_begin_counter_index, prev_row_index, vector_index, prev_B_pow, prev_vector_index;
     const int max_vector_index = counters.size() + compressed_counters - 1;
-    int prev_vector_index = vector_index;
     for (
-        ;
+        vector_index = getFirstAllocatedVectorIndexFromKey(key, row_id, prev_layer_id, prev_layer_begin_counter_index, prev_row_index, prev_B_pow);
         vector_index != -1;
-        vector_index = getNextVectorIndexFromKey(key, row_id, 
-            prev_layer_id, prev_layer_begin_counter_index, prev_row_index, prev_B_pow)
+        vector_index = getNextVectorIndexFromKey(key, row_id, prev_layer_id, prev_layer_begin_counter_index, prev_row_index, prev_B_pow)
         ) {
         prev_vector_index = vector_index;
     }
     return prev_vector_index;
 }
 
-int GeometricSketch::getNextVectorIndexFromKey(
+inline long GeometricSketch::getFirstAllocatedVectorIndexFromKey(uint32_t key, uint32_t row_id, int& prev_layer_id, int& prev_layer_row_index, int& prev_counter_row_index, int& prev_B_pow) const
+{
+    const int O = compressed_counters;
+    prev_layer_id = 0;
+    prev_layer_row_index = 0;
+    prev_counter_row_index = hash(key, row_id, 0) % width;
+    prev_B_pow = 1;
+    const int max_vector_index = counters.size() + compressed_counters - 1;
+    int vector_index = rowIndexToVectorIndex(row_id, prev_counter_row_index);
+    for (
+        ;
+        vector_index < O;
+        vector_index = getNextVectorIndexFromKey(key, row_id,
+            prev_layer_id, prev_layer_row_index, prev_counter_row_index, prev_B_pow)
+        ) {
+    }
+    return vector_index;
+}
+
+long GeometricSketch::getNextVectorIndexFromKey(
     uint32_t key, 
     uint32_t row_id, 
     int& prev_layer_id, 
@@ -83,21 +96,17 @@ int GeometricSketch::query(uint32_t key)
     for (uint32_t row_id = 0; row_id < depth; row_id++)
     {
         uint32_t current_estimate = 0;
-        int prev_layer_id = 0;
-        int prev_layer_begin_counter_index = 0;
-        int prev_row_index = hash(key, row_id, 0UL) % width;
-        int prev_B_pow = 1;
-        long vector_index = rowIndexToVectorIndex(row_id, prev_row_index);        
+        int prev_layer_id, prev_layer_begin_counter_index, prev_row_index, prev_B_pow;
+        long vector_index;
         for (
-            ;
+            vector_index = getFirstAllocatedVectorIndexFromKey(key, row_id,
+                prev_layer_id, prev_layer_begin_counter_index, prev_row_index, prev_B_pow);
             vector_index != -1;
             vector_index = getNextVectorIndexFromKey(key, row_id,
                 prev_layer_id, prev_layer_begin_counter_index, prev_row_index, prev_B_pow)
             ) {
-            if (vector_index >= O) {
-                long actual_index = vector_index - O;
-                current_estimate += counters[actual_index];
-            }
+            long actual_index = vector_index - O;
+            current_estimate += counters[actual_index];
         }
         estimate = std::min(estimate, current_estimate);
     }
@@ -120,7 +129,6 @@ int GeometricSketch::undoExpand(int n)
         counter_undo++;
     }
     counters.resize(counters.size() - counter_undo);
-
     return counter_undo;
 }
 
