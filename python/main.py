@@ -20,15 +20,26 @@ if os.name == 'nt':
     filepath_executable = "..\\cpp\\x64\\Release\\DynamicSketch.exe"
 else:
     filepath_zipf = '../pcaps/zipf'
-    filepath_packets = '../pcaps/capture.txt'
+    filepath_packets = '/home_nfs/dbiton/dataCounters/GeometricSketchFormat/saj.txt'
     filepath_executable = "../cpp/DynamicSketch"
+    figures_folder = "figures"
 
-COUNT_PACKETS_MAX = 37700000
-COUNT_PACKETS = min(37700000, COUNT_PACKETS_MAX)
+COUNT_PACKETS_MAX = 175000000
+COUNT_PACKETS = min(175000000, COUNT_PACKETS_MAX)
 
 
 def generate_dcms_expands_command(N: int, K: int, sketch_width: int, sketch_depth: int,
                                   strategy_name: str, is_geometric: bool, is_compressed: bool, B=None):
+    if strategy_name == "fine":
+      packets_per_expand = N / (sketch_depth * sketch_width)
+      if is_compressed:
+          packets_per_expand *= ((B - 1) / B)
+      command = [
+          "--repeat", "expand", str(packets_per_expand), "1"
+      ]
+      if is_compressed:
+          command += ["--repeat", "compress", str(packets_per_expand), str(COUNT_PACKETS)]
+      return command
     strategy_funcs = {
         "linear": lambda x: K * x,
         "exponential": lambda x: K ** x
@@ -124,10 +135,10 @@ def plot_cms_update_query_throughput(count_width: int, count_depth: int, depth: 
     ax1.set_ylabel('Depth')
     ax1.set_xlabel('log2(Width/W)')
     fig.tight_layout()
-    plt.savefig(f'figures/{figure_name}')
+    plt.savefig(f'{figures_folder}/{figure_name}')
     plt.close(fig)
 
-def plot_gs_update_query_throughput(B: int, L: int, figure_name: str):
+def plot_gs_update_query_throughput(t, B: int, L: int, figure_name: str):
     sketch_width = 272
     sketch_depth = 5
 
@@ -138,7 +149,7 @@ def plot_gs_update_query_throughput(B: int, L: int, figure_name: str):
         for b in range(2, B):
             expand_size = sketch_width * ((b ** (l + 1) - 1) / (b - 1)) - sketch_width
             result = execute_command([
-                "--type", "geometric",
+                "--type", t,
                 "--width", str(sketch_width),
                 "--depth", str(sketch_depth),
                 "--branching_factor", str(b),
@@ -156,16 +167,118 @@ def plot_gs_update_query_throughput(B: int, L: int, figure_name: str):
     for (throughputs, ax) in [(throughputs_update, ax0), (throughputs_query, ax1)]:
         for (j, i), label in np.ndenumerate(throughputs):
             ax.text(i + 2.5, j + 0.5, int(label), ha='center', va='center')
-
-    ax0.set_title('GS Update MOPS')
+    
+    ax0.set_yticklabels([i+1 for i in range(L+1)])
+    ax1.set_yticklabels([i+1 for i in range(L+1)])
+    
+    ax0.set_title('GS-MH Update MOPS')
     ax0.set_xlabel('Branching Factor')
     ax0.set_ylabel('Layers')
-    ax1.set_title('Uncompressed GS Query MOPS')
+    ax1.set_title('Uncompressed GS-MH Query MOPS')
     ax1.set_xlabel('Branching Factor')
     ax1.set_ylabel('Layers')
     fig.tight_layout()
+    plt.savefig(f'{figures_folder}/{figure_name}')
+    plt.close(fig)
+
+
+def plot_gs_dcms_comparison(B: int, K: int, N: int, count_log: int, figure_name: str):
+    sketch_width = 50
+    sketch_depth = 2
+    packets_per_log = COUNT_PACKETS // count_log
+
+    fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
+
+    markers = ["o", "v", "^", "<", ">", "s", "p", "D"]
+    strategies = [
+        "linear",
+        "exponential"
+    ]
+    for i, strategy in enumerate(strategies):
+        command_dcms = [
+            "--type", "dynamic",
+            "--width", str(sketch_width),
+            "--depth", str(sketch_depth),
+            "--once", "log_memory_usage", "0",
+            "--repeat", "log_memory_usage", str(packets_per_log),
+            "--once", "log_memory_usage", str(COUNT_PACKETS - 1),
+            "--once", "log_average_relative_error", "0",
+            "--repeat", "log_average_relative_error", str(packets_per_log),
+            "--once", "log_average_relative_error", str(COUNT_PACKETS - 1)
+        ]
+        command_gs = [
+            "--type", "geometric",
+            "--width", str(sketch_width),
+            "--depth", str(sketch_depth),
+            "--branching_factor", str(B),
+            "--once", "log_memory_usage", "0",
+            "--repeat", "log_memory_usage", str(packets_per_log),
+            "--once", "log_memory_usage", str(COUNT_PACKETS - 1),
+            "--once", "log_average_relative_error", "0",
+            "--repeat", "log_average_relative_error", str(packets_per_log),
+            "--once", "log_average_relative_error", str(COUNT_PACKETS - 1)
+        ]
+        
+        command_dcms += generate_dcms_expands_command(N, K, sketch_width, sketch_depth, strategy, False, False, B)
+        command_gs_compressed = command_gs + generate_dcms_expands_command(N, K, sketch_width, sketch_depth, strategy,
+                                                                           True, True, B)
+        command_gs_uncompressed = command_gs + generate_dcms_expands_command(N, K, sketch_width, sketch_depth, strategy,
+                                                                             True, False, B)
+        todo = [(0, "DCMS", command_dcms), (1, "GS-C", command_gs_compressed), (2, "GS-U", command_gs_uncompressed)]
+        for args in todo:
+            s, type, command = args
+            result = execute_command(command)
+            y_mae = result['log_average_relative_error'].dropna().to_numpy()
+            y_mem = result['memory_usage'].dropna().to_numpy()
+            x_mae = result['log_average_relative_error'].dropna().index.to_numpy()
+            x_mem = result['memory_usage'].dropna().index.to_numpy()
+            strategy_char = "LIN" if i == 0 else "EXP"
+            ax0.plot(x_mem, y_mem, label=f"{type}-{strategy_char}", marker=markers[s + i * 3])
+            ax1.plot(x_mae, y_mae, label=f"{type}-{strategy_char}", marker=markers[s + i * 3])
+
+    for i, is_compressed in enumerate([True, False]):
+        packets_per_expand = N / (sketch_depth * sketch_width)
+        if is_compressed:
+            packets_per_expand *= ((B - 1) / B)
+
+        command_gs = [
+            "--type", "geometric",
+            "--width", str(sketch_width),
+            "--depth", str(sketch_depth),
+            "--branching_factor", str(B),
+            "--once", "log_memory_usage", "0",
+            "--repeat", "log_memory_usage", str(packets_per_log),
+            "--once", "log_memory_usage", str(COUNT_PACKETS - 1),
+            "--once", "log_average_relative_error", "0",
+            "--repeat", "log_average_relative_error", str(packets_per_log),
+            "--once", "log_average_relative_error", str(COUNT_PACKETS - 1),
+            "--repeat", "expand", str(packets_per_expand), "1"
+        ]
+        if is_compressed:
+            command_gs += ["--repeat", "compress", str(packets_per_expand), str(COUNT_PACKETS)]
+
+        result = execute_command(command_gs)
+        y_mae = result['log_average_relative_error'].dropna().to_numpy()
+        y_mem = result['memory_usage'].dropna().to_numpy()
+        x_mae = result['log_average_relative_error'].dropna().index.to_numpy()
+        x_mem = result['memory_usage'].dropna().index.to_numpy()
+        compress_char = "C" if is_compressed else "U"
+        ax0.plot(x_mem, y_mem, label=f"GS-{compress_char}-FIN", marker=markers[-i])
+        ax1.plot(x_mae, y_mae, label=f"GS-{compress_char}-FIN", marker=markers[-i])
+
+    ax0.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
+    ax1.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
+    ax0.grid()
+    ax0.set_ylabel('Memory Usage (Bytes)')
+    ax0.set_xlabel('Packets Count')
+    ax1.grid()
+    ax1.set_ylabel('ARE')
+    ax1.set_xlabel('Packets Count')
+    ax0.legend()
+    fig.tight_layout()
     plt.savefig(f'figures/{figure_name}')
     plt.close(fig)
+
 
 def plot_gs_mh_update_query_throughput(B: int, L: int, figure_name: str):
     sketch_width = 272
@@ -212,7 +325,7 @@ def plot_gs_mh_update_query_throughput(B: int, L: int, figure_name: str):
     ax3.set_xlabel('B')
     ax3.set_ylabel('L')
     fig.tight_layout()
-    plt.savefig(f'figures/{figure_name}')
+    plt.savefig(f'{figures_folder}/{figure_name}')
     plt.close(fig)
 
 
@@ -247,13 +360,13 @@ def plot_dcms_update_query_throughput(B: int, S: int, figure_name: str):
             ax.text(i + 2.5, j + 1.5, int(label), ha='center', va='center')
 
     ax0.set_title('DCMS Update MOPS')
-    ax0.set_xlabel('Branching Factor')
+    ax0.set_xlabel('K Parameter')
     ax0.set_ylabel('Sketches')
     ax1.set_title('DCMS Query MOPS')
-    ax1.set_xlabel('Branching Factor')
+    ax1.set_xlabel('K Parameter')
     ax1.set_ylabel('Sketches')
     fig.tight_layout()
-    plt.savefig(f'figures/{figure_name}')
+    plt.savefig(f'{figures_folder}/{figure_name}')
     plt.close(fig)
 
 
@@ -316,7 +429,7 @@ def plot_gs_compress_throughput(B: int, L: int, figure_name: str):
     ax_query.set_xlabel('Branching Factor')
     ax_query.set_ylabel('Layers')
     fig.tight_layout()
-    plt.savefig(f'figures/{figure_name}')
+    plt.savefig(f'{figures_folder}/{figure_name}')
     plt.close(fig)
 
 
@@ -368,7 +481,7 @@ def plot_gs_expand_undo_throughput(B: int, L: int, figure_name: str):
     ax_shrink.set_xlabel('Branching Factor')
     ax_shrink.set_ylabel('Layers')
     fig.tight_layout()
-    plt.savefig(f'figures/{figure_name}')
+    plt.savefig(f'{figures_folder}/{figure_name}')
     plt.close(fig)
 
 
@@ -423,7 +536,7 @@ def plot_gs_dcms_undo_throughput(B: int, L: int, figure_name: str):
     ax_dcms.set_xlabel('Branching Factor')
     ax_dcms.set_ylabel('Layers')
     fig.tight_layout()
-    plt.savefig(f'figures/{figure_name}')
+    plt.savefig(f'{figures_folder}/{figure_name}')
     plt.close(fig)
 
 
@@ -450,7 +563,7 @@ def plot_ip_distribution_zipf(figure_name: str):
     ax.set_xlabel('Rank')
     ax.set_ylabel('Frequency')
     fig.tight_layout()
-    plt.savefig(f'figures/{figure_name}')
+    plt.savefig(f'{figures_folder}/{figure_name}')
     plt.close(fig)
 
 
@@ -486,7 +599,7 @@ def plot_ip_distribution(figure_name: str):
     ax0.plot(rank, zipf(rank, *popt), label=f"Zipf[a={round(popt[0], 2)}]")
     ax0.legend()
     fig.tight_layout()
-    plt.savefig(f'figures/{figure_name}')
+    plt.savefig(f'{figures_folder}/{figure_name}')
     plt.close(fig)
 
 
@@ -547,7 +660,7 @@ def plot_branching_factor(branching_factors: list, count_log: int, figure_name: 
         ax1.plot(x_mae, y_mae, label=f'GS-B{branching_factor}', marker=markers[i])
     ax0.legend()
     fig.tight_layout()
-    plt.savefig(f'figures/{figure_name}')
+    plt.savefig(f'{figures_folder}/{figure_name}')
     plt.close(fig)
 
 
@@ -611,7 +724,7 @@ def plot_gs_skew_branching_factor(Bs: list, count_log: int, figure_name: str):
         ax.set_xlabel('Zipfian Parameter')
         ax.legend()
     fig.tight_layout()
-    plt.savefig(f'figures/{figure_name}')
+    plt.savefig(f'{figures_folder}/{figure_name}')
     plt.close(fig)
 
 
@@ -686,7 +799,7 @@ def plot_gs_cms_derivative_comparison(B: int, L: int, count_log: int, figure_nam
     ax2.plot(x_mae, d_mae, label=f"GS-B{B}", marker="o")
     ax1.legend()
     fig.tight_layout()
-    plt.savefig(f'figures/{figure_name}')
+    plt.savefig(f'{figures_folder}/{figure_name}')
     plt.close(fig)
 
 
@@ -751,77 +864,8 @@ def plot_gs_cms_static_comparison(B: int, L: int, count_log: int, figure_name):
     ax1.set_xlabel('Packets Count')
     ax0.legend()
     fig.tight_layout()
-    plt.savefig(f'figures/{figure_name}')
+    plt.savefig(f'{figures_folder}/{figure_name}')
     plt.close(fig)
-
-
-def plot_gs_dcms_comparison(B: int, K: int, N: int, count_log: int, figure_name: str):
-    sketch_width = 50
-    sketch_depth = 2
-    packets_per_log = COUNT_PACKETS // count_log
-
-    fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
-
-    markers = ["v", "^", ">", "<", "D", "o", '*']
-    strategies = [
-        "linear",
-        "exponential"
-    ]
-    for i, strategy in enumerate(strategies):
-        command_dcms = [
-            "--type", "dynamic",
-            "--width", str(sketch_width),
-            "--depth", str(sketch_depth),
-            "--once", "log_memory_usage", "0",
-            "--repeat", "log_memory_usage", str(packets_per_log),
-            "--once", "log_memory_usage", str(COUNT_PACKETS - 1),
-            "--once", "log_average_relative_error", "0",
-            "--repeat", "log_average_relative_error", str(packets_per_log),
-            "--once", "log_average_relative_error", str(COUNT_PACKETS - 1)
-        ]
-        command_gs = [
-            "--type", "geometric",
-            "--width", str(sketch_width),
-            "--depth", str(sketch_depth),
-            "--branching_factor", str(B),
-            "--once", "log_memory_usage", "0",
-            "--repeat", "log_memory_usage", str(packets_per_log),
-            "--once", "log_memory_usage", str(COUNT_PACKETS - 1),
-            "--once", "log_average_relative_error", "0",
-            "--repeat", "log_average_relative_error", str(packets_per_log),
-            "--once", "log_average_relative_error", str(COUNT_PACKETS - 1)
-        ]
-
-        command_dcms += generate_dcms_expands_command(N, K, sketch_width, sketch_depth, strategy, False, False, B)
-        command_gs_compressed = command_gs + generate_dcms_expands_command(N, K, sketch_width, sketch_depth, strategy,
-                                                                           True, True, B)
-        command_gs_uncompressed = command_gs + generate_dcms_expands_command(N, K, sketch_width, sketch_depth, strategy,
-                                                                             True, False, B)
-        todo = [(0, "DCMS", command_dcms), (1, "GS-C", command_gs_compressed), (2, "GS-U", command_gs_uncompressed)]
-        for args in todo:
-            s, type, command = args
-            result = execute_command(command)
-            y_mae = result['log_average_relative_error'].dropna().to_numpy()
-            y_mem = result['memory_usage'].dropna().to_numpy()
-            x_mae = result['log_average_relative_error'].dropna().index.to_numpy()
-            x_mem = result['memory_usage'].dropna().index.to_numpy()
-            strategy_char = "LIN" if i == 0 else "EXP"
-            ax0.plot(x_mem, y_mem, label=f"{type}-{strategy_char}", marker=markers[s + i * 3])
-            ax1.plot(x_mae, y_mae, label=f"{type}-{strategy_char}", marker=markers[s + i * 3])
-
-    ax0.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
-    ax1.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
-    ax0.grid()
-    ax0.set_ylabel('Memory Usage (Bytes)')
-    ax0.set_xlabel('Packets Count')
-    ax1.grid()
-    ax1.set_ylabel('ARE')
-    ax1.set_xlabel('Packets Count')
-    ax0.legend()
-    fig.tight_layout()
-    plt.savefig(f'figures/{figure_name}')
-    plt.close(fig)
-
 
 def plot_dcms_memory_usage(KS: list, NS: list, count_log: int, figure_name: str):
     sketch_width = 272
@@ -879,7 +923,7 @@ def plot_dcms_memory_usage(KS: list, NS: list, count_log: int, figure_name: str)
     ax.set_xlabel('Packets Count')
     ax.legend()
     fig.tight_layout()
-    plt.savefig(f'figures/{figure_name}')
+    plt.savefig(f'{figures_folder}/{figure_name}')
     plt.close(fig)
 
 
@@ -970,7 +1014,7 @@ def plot_gs_dcms_granular_comparison(B: int, K: int, N: int, count_log: int, fig
     ax1.set_xlabel('Packets Count')
     ax0.legend()
     fig.tight_layout()
-    plt.savefig(f'figures/{figure_name}')
+    plt.savefig(f'{figures_folder}/{figure_name}')
     plt.close(fig)
 
 def get_unique_packets_count(count_include, filepath = filepath_packets):
@@ -987,9 +1031,11 @@ def plot_gs_error_heavy_hitters(B: int, K: int, N: int, hh_percent_min: float, h
     unique_packets_count = get_unique_packets_count(COUNT_PACKETS)
     max_hh = math.ceil(unique_packets_count * hh_percent_max)
     min_hh = math.floor(unique_packets_count * hh_percent_min)
-    markers = ["v", "^", ">", "<", "D", "o", '*']
-    for strategy_name in ["exponential", "linear"]:
+    markers = ["o", "v", "^", "<", ">", "s", "p", "D"]
+    for strategy_name in ["exponential", "linear", "fine"]:
         for sketchtype in ["geometric_uncompressed", "geometric_compressed", "dynamic"]:
+            if strategy_name == "fine" and sketchtype == "dynamic":
+              continue
             real_sketchtype = sketchtype.split('_')[0]
             
             command = [
@@ -1042,7 +1088,8 @@ def plot_gs_error_heavy_hitters(B: int, K: int, N: int, hh_percent_min: float, h
             }
             label_strategy_dict = {
                 "linear" : "LIN",
-                "exponential" : "EXP"
+                "exponential" : "EXP",
+                "fine" : "FIN"
             }
             label_name = f"{label_sketchtype_dict[sketchtype]}-{label_compressed_dict[sketchtype]}{label_strategy_dict[strategy_name]}"
             ax0.plot(x_aae, y_aae, 
@@ -1071,7 +1118,7 @@ def plot_gs_error_heavy_hitters(B: int, K: int, N: int, hh_percent_min: float, h
     # ax2.set_xlabel('Packets')
     # ax2.set_ylabel('Memory Usage')
     fig.tight_layout()
-    plt.savefig(f'figures/{figure_name}')
+    plt.savefig(f'{figures_folder}/{figure_name}')
     plt.close(fig)
 
 
@@ -1134,7 +1181,7 @@ def plot_gs_undo_expand(B: int, L: int, max_cycles: int, granularity: int,
     ax1.set_xlabel('Packets Count')
     ax1.legend()
     fig.tight_layout()
-    plt.savefig(f'figures/{figure_name}')
+    plt.savefig(f'{figures_folder}/{figure_name}')
     plt.close(fig)
 
 
@@ -1211,7 +1258,7 @@ def plot_gs_dynamic_undo_comparison(B_count: int, count_log: int, figure_name: s
     ax1.set_xlabel('Packets Count')
     ax1.legend()
     fig.tight_layout()
-    plt.savefig(f'figures/{figure_name}')
+    plt.savefig(f'{figures_folder}/{figure_name}')
     plt.close(fig)
 
 
@@ -1337,7 +1384,7 @@ def plot_gs_derivative(B: int, L: int, count_expand: int, count_log: int, figure
         ax2.plot(x_mae, d_mae, label=f"$f_{i}$", marker=markers[i])
     ax1.legend()
     fig.tight_layout()
-    plt.savefig(f'figures/{figure_name}')
+    plt.savefig(f'{figures_folder}/{figure_name}')
     plt.close(fig)
 
 
@@ -1356,11 +1403,11 @@ def parallel():
         plot_gs_undo_expand,
         plot_gs_cms_static_comparison,
         plot_gs_dcms_granular_comparison,
-        plot_gs_skew_branching_factor,
+        # plot_gs_skew_branching_factor,
         plot_dcms_memory_usage,
         plot_branching_factor,
-        plot_ip_distribution_zipf,
-        plot_ip_distribution,
+        # plot_ip_distribution_zipf,
+        # plot_ip_distribution,
         plot_gs_error_heavy_hitters
     ]
 
@@ -1372,11 +1419,11 @@ def parallel():
         (2, 3, 4, 128, 24, 24, "fig_gs_undo_expand",),
         (2, 4, 16, "fig_gs_cms_static_comparison",),
         (2, 4, 2 * 5 * 272 * 100, 32, "fig_gs_dcms_granular_comparison",),
-        ([2, 4, 8, 12, 16], 16, "fig_gs_skew_branching_factor",),
+        # ([2, 4, 8, 12, 16], 16, "fig_gs_skew_branching_factor",),
         ([2, 5], [1000, 500], 32, "fig_dcms_memory_usage",),
         ([2, 4, 8], 16, "fig_branching_factor",),
-        ("fig_ip_distribution_zipf",),
-        ("fig_ip_distribution",),
+        # ("fig_ip_distribution_zipf",),
+        # ("fig_ip_distribution",),
         (2, 2, 2 * 5 * 272 * 100, 0.001, 0.1, 16, "fig_gs_dcms_heavyhitters_error",),
     ]
 
@@ -1399,14 +1446,17 @@ def serial():
     plot_dcms_memory_usage([2, 5], [1000, 500], 32, "fig_dcms_memory_usage")
     plot_branching_factor([2, 4, 8], 16, "fig_branching_factor")
 
-    plot_ip_distribution_zipf("fig_ip_distribution_zipf")
-    plot_ip_distribution("fig_ip_distribution")
+    #plot_ip_distribution_zipf("fig_ip_distribution_zipf")
+    #plot_ip_distribution("fig_ip_distribution")
 
 
 if __name__ == "__main__":
-    parallel()
-    plot_dcms_update_query_throughput(8, 6, "fig_dcms_update_query_throughput")
-    plot_cms_update_query_throughput(6, 6, 5, 2, "fig_cms_throughput")
-    plot_gs_update_query_throughput(8, 6, "fig_gs_update_query_throughput")
-    plot_gs_dcms_undo_throughput(8, 6, "fig_gs_dcms_undo_throughput")
-    plot_gs_compress_throughput(8, 6, "fig_gs_compress_throughput")
+    plot_gs_error_heavy_hitters(2, 2, 2 * 5 * 272 * 100, 0.001, 0.1, 16, "fig_gs_dcms_heavyhitters_error")
+    #plot_gs_dcms_comparison(2, 2, 2 * 5 * 272 * 100, 24, "fig_gs_dcms_comparison")
+    #parallel()
+    #plot_dcms_update_query_throughput(8, 6, "fig_dcms_update_query_throughput")
+    #plot_cms_update_query_throughput(6, 6, 5, 2, "fig_cms_throughput")
+    #plot_gs_update_query_throughput("multihash", 8, 6, "fig_gs_mh_update_query_throughput")
+    #plot_gs_update_query_throughput("multihash", 8, 6, "fig_gs_mh_update_query_throughput")
+    #plot_gs_dcms_undo_throughput(8, 6, "fig_gs_dcms_undo_throughput")
+    #plot_gs_compress_throughput(8, 6, "fig_gs_compress_throughput")
