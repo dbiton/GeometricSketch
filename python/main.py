@@ -13,19 +13,21 @@ from scipy.optimize import curve_fit
 from scipy.special import zetac
 from matplotlib import cm, colors
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+import logger as logger
 
 if os.name == 'nt':
     filepath_zipf = '..\\pcaps\\zipf'
-    filepath_packets = '..\\pcaps\\capture.txt'
+    filepath_packets = '..\\pcaps\\saj.txt'
     filepath_executable = "..\\cpp\\x64\\Release\\DynamicSketch.exe"
+    figures_folder = "figures"
 else:
     filepath_zipf = '../pcaps/zipf'
     filepath_packets = '/home_nfs/dbiton/dataCounters/GeometricSketchFormat/saj.txt'
     filepath_executable = "../cpp/DynamicSketch"
     figures_folder = "figures"
 
-COUNT_PACKETS_MAX = 175000000
-COUNT_PACKETS = min(175000000, COUNT_PACKETS_MAX)
+COUNT_PACKETS_MAX = 1000000
+COUNT_PACKETS = min(188500000, COUNT_PACKETS_MAX)
 
 
 def generate_dcms_expands_command(N: int, K: int, sketch_width: int, sketch_depth: int,
@@ -35,10 +37,10 @@ def generate_dcms_expands_command(N: int, K: int, sketch_width: int, sketch_dept
       if is_compressed:
           packets_per_expand *= ((B - 1) / B)
       command = [
-          "--repeat", "expand", str(packets_per_expand), "1"
+          "--repeat", "expand", str(round(packets_per_expand)), "1"
       ]
       if is_compressed:
-          command += ["--repeat", "compress", str(packets_per_expand), str(COUNT_PACKETS)]
+          command += ["--repeat", "compress", str(round(packets_per_expand)), str(COUNT_PACKETS)]
       return command
     strategy_funcs = {
         "linear": lambda x: K * x,
@@ -58,11 +60,11 @@ def generate_dcms_expands_command(N: int, K: int, sketch_width: int, sketch_dept
         if total >= COUNT_PACKETS:
             break
         if not is_compressed:
-            command_expand = ["--once", "expand", str(total), str(appended_size)]
+            command_expand = ["--once", "expand", str(round(total)), str(round(appended_size))]
             command.extend(command_expand)
         else:
-            compress_command = ["--once", "compress", str(total), str(appended_size * B / (B - 1))]
-            command_expand_compressed = ["--once", "expand", str(total), str(appended_size * B / (B - 1))]
+            compress_command = ["--once", "compress", str(round(total)), str(round(appended_size * B / (B - 1)))]
+            command_expand_compressed = ["--once", "expand", str(round(total)), str(round(appended_size * B / (B - 1)))]
             command.extend(command_expand_compressed + compress_command)
     return command
 
@@ -78,7 +80,7 @@ def width_for_expand(w, b, to_layer_index):
 def execute_command(arguments: list, packets_path=filepath_packets, count_packets=COUNT_PACKETS):
     command = [filepath_executable, "--limit_file",
                packets_path, str(count_packets)] + arguments
-    print("executing:", ' '.join(command))
+    logger.log("info", f"executing: {' '.join(command)}")
     result = sp.run(command, stdout=sp.PIPE,
                     stderr=sp.PIPE, universal_newlines=True)
     if result.returncode != 0:
@@ -139,7 +141,7 @@ def plot_cms_update_query_throughput(count_width: int, count_depth: int, depth: 
     plt.close(fig)
 
 def plot_gs_update_query_throughput(t, B: int, L: int, figure_name: str):
-    sketch_width = 272
+    sketch_width = 27182
     sketch_depth = 5
 
     fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
@@ -276,12 +278,12 @@ def plot_gs_dcms_comparison(B: int, K: int, N: int, count_log: int, figure_name:
     ax1.set_xlabel('Packets Count')
     ax0.legend()
     fig.tight_layout()
-    plt.savefig(f'figures/{figure_name}')
+    plt.savefig(f'{figures_folder}/{figure_name}')
     plt.close(fig)
 
 
 def plot_gs_mh_update_query_throughput(B: int, L: int, figure_name: str):
-    sketch_width = 272
+    sketch_width = 27182
     sketch_depth = 5
 
     fig, ((ax0, ax1), (ax2, ax3)) = plt.subplots(2, 2, figsize=(8, 8))
@@ -330,7 +332,7 @@ def plot_gs_mh_update_query_throughput(B: int, L: int, figure_name: str):
 
 
 def plot_dcms_update_query_throughput(B: int, S: int, figure_name: str):
-    sketch_width = 272
+    sketch_width = 27182
     sketch_depth = 5
 
     fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
@@ -372,7 +374,7 @@ def plot_dcms_update_query_throughput(B: int, S: int, figure_name: str):
 
 # need to actually compress
 def plot_gs_compress_throughput(B: int, L: int, figure_name: str):
-    sketch_width = 272
+    sketch_width = 27182
     sketch_depth = 5
 
     fig, (ax_compress, ax_query) = plt.subplots(1, 2, figsize=(8, 4))
@@ -434,7 +436,7 @@ def plot_gs_compress_throughput(B: int, L: int, figure_name: str):
 
 
 def plot_gs_expand_undo_throughput(B: int, L: int, figure_name: str):
-    sketch_width = 272
+    sketch_width = 27182
     sketch_depth = 5
 
     fig, (ax_expand, ax_shrink) = plt.subplots(1, 2, figsize=(8, 4))
@@ -486,7 +488,7 @@ def plot_gs_expand_undo_throughput(B: int, L: int, figure_name: str):
 
 
 def plot_gs_dcms_undo_throughput(B: int, L: int, figure_name: str):
-    sketch_width = 272
+    sketch_width = 27182
     sketch_depth = 5
 
     fig, (ax_gs, ax_dcms) = plt.subplots(1, 2, figsize=(8, 4))
@@ -548,7 +550,6 @@ def plot_ip_distribution_zipf(figure_name: str):
     norm = colors.Normalize(1, max_a)
     for a_float in np.arange(1 + step, max_a, step):
         a = np.round(a_float, 2)
-        print("ip", a)
         packets = get_packets(f"../pcaps/zipf/zipf-{a}.txt")
         counter = Counter(packets)
         frequency = np.array(sorted(list(counter.values()), key=lambda x: -x)) / len(packets)
@@ -604,7 +605,7 @@ def plot_ip_distribution(figure_name: str):
 
 
 def plot_branching_factor(branching_factors: list, count_log: int, figure_name: str):
-    sketch_width = 272
+    sketch_width = 27182
     sketch_depth = 5
     packets_per_log = COUNT_PACKETS // count_log
     counters_added = max(branching_factors) * sketch_width * sketch_depth
@@ -665,7 +666,7 @@ def plot_branching_factor(branching_factors: list, count_log: int, figure_name: 
 
 
 def plot_gs_skew_branching_factor(Bs: list, count_log: int, figure_name: str):
-    sketch_width = 272
+    sketch_width = 27182
     sketch_depth = 5
     B_max = max(Bs)
     counters_added = sketch_depth * width_for_expand(sketch_width, B_max, 1)
@@ -706,7 +707,6 @@ def plot_gs_skew_branching_factor(Bs: list, count_log: int, figure_name: str):
                                             count_packets=COUNT_PACKETS_SYNTH)
             are_cmp = result_gs_cmp['log_average_relative_error'].dropna().to_numpy()[-1]
             are_uncmp = result_gs_uncmp['log_average_relative_error'].dropna().to_numpy()[-1]
-            print(a, are_cmp, are_uncmp)
             y_are_cmp.append(are_cmp)
             y_are_uncmp.append(are_uncmp)
             x.append(a)
@@ -729,11 +729,11 @@ def plot_gs_skew_branching_factor(Bs: list, count_log: int, figure_name: str):
 
 
 def plot_gs_cms_derivative_comparison(B: int, L: int, count_log: int, figure_name: str):
-    sketch_width = 272
+    sketch_width = 27182
     sketch_depth = 5
     counters_added = (sketch_depth * sketch_width * (B ** L - 1) / (B - 1) - sketch_width * sketch_depth)
     packets_per_expand = math.floor(COUNT_PACKETS / counters_added)
-    assert packets_per_expand > 0
+    counters_per_expand = round(counters_added / COUNT_PACKETS)
     APPROX_COUNT_PACKETS = counters_added * packets_per_expand
     packets_per_log = APPROX_COUNT_PACKETS // count_log
 
@@ -779,7 +779,7 @@ def plot_gs_cms_derivative_comparison(B: int, L: int, count_log: int, figure_nam
         "--width", str(sketch_width),
         "--depth", str(sketch_depth),
         "--branching_factor", str(B),
-        "--repeat", "expand", str(packets_per_expand), "1",
+        "--repeat", "expand", str(packets_per_expand), str(counters_per_expand),
         "--repeat", "compress", str(packets_per_expand), "1000000",
         "--repeat", "log_average_relative_error", str(packets_per_log),
         "--once", "log_memory_usage", "0",
@@ -804,7 +804,7 @@ def plot_gs_cms_derivative_comparison(B: int, L: int, count_log: int, figure_nam
 
 
 def plot_gs_cms_static_comparison(B: int, L: int, count_log: int, figure_name):
-    sketch_width = 272
+    sketch_width = 27182
     sketch_depth = 5
     packets_per_log = COUNT_PACKETS // count_log
 
@@ -868,7 +868,7 @@ def plot_gs_cms_static_comparison(B: int, L: int, count_log: int, figure_name):
     plt.close(fig)
 
 def plot_dcms_memory_usage(KS: list, NS: list, count_log: int, figure_name: str):
-    sketch_width = 272
+    sketch_width = 27182
     sketch_depth = 5
     packets_per_log = COUNT_PACKETS // count_log
 
@@ -928,7 +928,7 @@ def plot_dcms_memory_usage(KS: list, NS: list, count_log: int, figure_name: str)
 
 
 def plot_gs_dcms_granular_comparison(B: int, K: int, N: int, count_log: int, figure_name: str):
-    sketch_width = 272
+    sketch_width = 27182
     sketch_depth = 5
     packets_per_log = COUNT_PACKETS // count_log
 
@@ -1022,7 +1022,7 @@ def get_unique_packets_count(count_include, filepath = filepath_packets):
     return len(Counter(packets[:count_include]).keys())
 
 def plot_gs_error_heavy_hitters(B: int, K: int, N: int, hh_percent_min: float, hh_percent_max: float, count_log: int, figure_name: str):
-    sketch_width = 272
+    sketch_width = 27182
     sketch_depth = 5
     packets_per_log = COUNT_PACKETS // count_log
 
@@ -1124,7 +1124,7 @@ def plot_gs_error_heavy_hitters(B: int, K: int, N: int, hh_percent_min: float, h
 
 def plot_gs_undo_expand(B: int, L: int, max_cycles: int, granularity: int,
                         count_log_memory: int, count_log_are: int, figure_name: str):
-    sketch_width = 272
+    sketch_width = 27182
     sketch_depth = 5
     packets_per_log_are = COUNT_PACKETS // count_log_are
     packets_per_log_memory = COUNT_PACKETS // count_log_memory
@@ -1186,7 +1186,7 @@ def plot_gs_undo_expand(B: int, L: int, max_cycles: int, granularity: int,
 
 
 def plot_gs_dynamic_undo_comparison(B_count: int, count_log: int, figure_name: str):
-    sketch_width = 272
+    sketch_width = 27182
     sketch_depth = 5
     packets_per_log = COUNT_PACKETS // count_log
     fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(8, 4))
@@ -1264,7 +1264,7 @@ def plot_gs_dynamic_undo_comparison(B_count: int, count_log: int, figure_name: s
 
 # replace with undo expand
 def plot_gs_dynamic_expand_comparison(B: int, L: int, count_log: int):
-    sketch_width = 272
+    sketch_width = 27182
     sketch_depth = 5
     packets_per_log = COUNT_PACKETS // count_log
     packets_per_modify = math.floor(COUNT_PACKETS / L)
@@ -1324,7 +1324,7 @@ def plot_gs_dynamic_expand_comparison(B: int, L: int, count_log: int):
 
 
 def plot_gs_derivative(B: int, L: int, count_expand: int, count_log: int, figure_name: str):
-    sketch_width = 272
+    sketch_width = 27182
     sketch_depth = 5
     packets_per_log = COUNT_PACKETS // count_log
     packets_per_expand = COUNT_PACKETS // count_expand
@@ -1451,9 +1451,9 @@ def serial():
 
 
 if __name__ == "__main__":
-    plot_gs_error_heavy_hitters(2, 2, 2 * 5 * 272 * 100, 0.001, 0.1, 16, "fig_gs_dcms_heavyhitters_error")
+    # plot_gs_error_heavy_hitters(2, 2, 2 * 5 * 272 * 100, 0.001, 0.1, 16, "fig_gs_dcms_heavyhitters_error")
     #plot_gs_dcms_comparison(2, 2, 2 * 5 * 272 * 100, 24, "fig_gs_dcms_comparison")
-    #parallel()
+    parallel()
     #plot_dcms_update_query_throughput(8, 6, "fig_dcms_update_query_throughput")
     #plot_cms_update_query_throughput(6, 6, 5, 2, "fig_cms_throughput")
     #plot_gs_update_query_throughput("multihash", 8, 6, "fig_gs_mh_update_query_throughput")
