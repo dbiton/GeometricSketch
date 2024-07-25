@@ -225,7 +225,7 @@ void doPendingActions(Dictionary *dictionary, const std::vector<uint32_t> &packe
 				dictionary->expand(action_timer.argument);
 				duration duration_expand = chrono_clock::now() - t_start;
 				double expand_time = duration_expand.count();
-				std::cout << "{\"log_expand_time\":" << expand_time << ",\"index\":" << packet_index << "}," << std::endl;
+				// std::cout << "{\"log_expand_time\":" << expand_time << ",\"index\":" << packet_index << "}," << std::endl;
 			}
             else if (action_name == "compress")
             {
@@ -233,7 +233,7 @@ void doPendingActions(Dictionary *dictionary, const std::vector<uint32_t> &packe
                 dictionary->compress(action_timer.argument);
 				duration duration_compress = chrono_clock::now() - t_start;
 				double compress_time = duration_compress.count();
-				std::cout << "{\"log_compress_time\":" << compress_time << ",\"index\":" << packet_index << "}," << std::endl;
+				//std::cout << "{\"log_compress_time\":" << compress_time << ",\"index\":" << packet_index << "}," << std::endl;
             }
 			else if (action_name == "shrink")
 			{
@@ -241,7 +241,7 @@ void doPendingActions(Dictionary *dictionary, const std::vector<uint32_t> &packe
 				dictionary->shrink(action_timer.argument);
 				duration duration_shrink = chrono_clock::now() - t_start;
 				double shrink_time = duration_shrink.count();
-				std::cout << "{\"log_shrink_time\":" << shrink_time << ",\"index\":" << packet_index << "}," << std::endl;
+				//std::cout << "{\"log_shrink_time\":" << shrink_time << ",\"index\":" << packet_index << "}," << std::endl;
 			}
 			else if (action_name == "log_memory_usage")
 			{
